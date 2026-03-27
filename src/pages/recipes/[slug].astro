@@ -43,6 +43,11 @@ const instructions: Instruction[] = JSON.parse(recipe.instructions ?? '[]');
 const tips: string[] = JSON.parse(recipe.tips ?? '[]');
 const kdrama: KDramaApp[] = JSON.parse(recipe.kDramaAppearances ?? '[]');
 const keywords: string[] = JSON.parse(recipe.keywords ?? '[]');
+
+const parsedQuizItems = quizItems.map(q => ({
+  ...q,
+  options: typeof q.options === 'string' ? JSON.parse(q.options) : (q.options ?? null),
+}));
 ---
 
 <BaseLayout
@@ -214,8 +219,8 @@ const keywords: string[] = JSON.parse(recipe.keywords ?? '[]');
       </div>
 
       <!-- Quiz -->
-      {quizItems.length > 0 && (
-        <QuizSection quizzes={quizItems} />
+      {parsedQuizItems.length > 0 && (
+        <QuizSection quizzes={parsedQuizItems} />
       )}
 
     </div>

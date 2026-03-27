@@ -1,23 +1,17 @@
 /**
  * seed.ts
  * -------
- * scripts/output/*.json 파일들을 읽어 로컬 D1 DB에 삽입합니다.
+ * scripts/output/*.json 파일들을 읽어 SQL을 생성하고
+ * wrangler d1 execute 로 로컬 D1 DB에 삽입합니다.
+ * (better-sqlite3 네이티브 모듈 불필요)
  *
  * 사용법:
- *   npm run db:seed            ← 로컬 D1
- *   npm run db:seed -- --prod  ← 프로덕션 D1 (주의)
- *
- * 전제조건:
- *   1. npm run db:migrate:local 실행 완료
- *   2. scripts/output/ 폴더에 generate.ts로 만든 *.json 파일 존재
+ *   npm run db:seed   ← 로컬 D1
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as dotenv from 'dotenv';
-import Database from 'better-sqlite3';
-
-dotenv.config({ path: '.env.local' });
+import { execSync } from 'child_process';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,156 +85,111 @@ interface GeneratedRecipe {
   aiModel?: string;
 }
 
-// ─── DB 연결 (로컬 D1 = .wrangler/state/v3/d1/ 아래 sqlite 파일) ──────────────
-
-function getLocalDB(): InstanceType<typeof Database> {
-  // wrangler dev가 만드는 로컬 D1 파일 경로
-  const wranglerDir = path.join(process.cwd(), '.wrangler', 'state', 'v3', 'd1');
-
-  let dbPath: string | null = null;
-
-  if (fs.existsSync(wranglerDir)) {
-    // 가장 최근 DB 파일 찾기
-    const files = fs.readdirSync(wranglerDir, { recursive: true }) as string[];
-    const sqliteFiles = files.filter(f => f.endsWith('.sqlite'));
-    if (sqliteFiles.length > 0) {
-      dbPath = path.join(wranglerDir, sqliteFiles[sqliteFiles.length - 1]!);
-    }
-  }
-
-  if (!dbPath) {
-    // fallback: 로컬 테스트용 sqlite 파일 직접 생성
-    dbPath = path.join(process.cwd(), 'local-dev.sqlite');
-    console.log(`⚠️  Wrangler D1 파일을 찾지 못해 ${dbPath} 를 사용합니다.`);
-    console.log('   먼저 "npm run dev" 또는 "wrangler d1 execute" 를 실행해 D1 을 초기화하세요.\n');
-  }
-
-  console.log(`📂 DB 경로: ${dbPath}\n`);
-  return new Database(dbPath);
-}
-
-// ─── 헬퍼 ─────────────────────────────────────────────────────────────────────
+// ─── SQL 헬퍼 ─────────────────────────────────────────────────────────────────
 
 const now = () => Math.floor(Date.now() / 1000);
 
-function upsertIngredient(db: InstanceType<typeof Database>, ing: GeneratedIngredient): number {
-  const existing = db.prepare('SELECT id FROM ingredients WHERE slug = ?').get(ing.slug) as { id: number } | undefined;
-  if (existing) return existing.id;
-
-  const result = db.prepare(`
-    INSERT INTO ingredients (slug, name_kr, name_en, romanization, description, substitute, where_to_find, storage_note, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    ing.slug, ing.nameKr, ing.nameEn, ing.romanization,
-    ing.description ?? null, ing.substitute ?? null,
-    ing.whereToFind ?? null, ing.storageNote ?? null,
-    now()
-  );
-  return result.lastInsertRowid as number;
+function esc(val: string | null | undefined): string {
+  if (val == null) return 'NULL';
+  return `'${val.replace(/'/g, "''")}'`;
 }
 
-function insertRecipe(db: InstanceType<typeof Database>, recipe: GeneratedRecipe): number | null {
-  const existing = db.prepare('SELECT id FROM recipes WHERE slug = ?').get(recipe.slug) as { id: number } | undefined;
-  if (existing) {
-    console.log(`  ⏩ 이미 존재: ${recipe.slug} (skip)`);
-    return null;
+function buildSQL(recipe: GeneratedRecipe): string {
+  const lines: string[] = [];
+  const ts = now();
+
+  // ── recipes ──
+  lines.push(`
+INSERT OR IGNORE INTO recipes (
+  slug, title_kr, title_en, romanization, description, cultural_note,
+  difficulty, cooking_time, servings, region,
+  instructions, tips, k_drama_appearances,
+  meta_title, meta_description, keywords,
+  published, ai_provider, ai_model, created_at, updated_at
+) VALUES (
+  ${esc(recipe.slug)},
+  ${esc(recipe.titleKr)},
+  ${esc(recipe.titleEn)},
+  ${esc(recipe.romanization)},
+  ${esc(recipe.description)},
+  ${esc(recipe.culturalNote)},
+  ${esc(recipe.difficulty)},
+  ${recipe.cookingTime},
+  ${recipe.servings},
+  ${esc(recipe.region)},
+  ${esc(JSON.stringify(recipe.instructions))},
+  ${esc(JSON.stringify(recipe.tips ?? []))},
+  ${esc(JSON.stringify(recipe.kDramaAppearances ?? []))},
+  ${esc(recipe.metaTitle)},
+  ${esc(recipe.metaDescription)},
+  ${esc(JSON.stringify(recipe.keywords ?? []))},
+  1,
+  ${esc(recipe.aiProvider)},
+  ${esc(recipe.aiModel)},
+  ${ts}, ${ts}
+);`);
+
+  // ── ingredients + recipe_ingredients ──
+  for (const ing of recipe.ingredients ?? []) {
+    lines.push(`
+INSERT OR IGNORE INTO ingredients (
+  slug, name_kr, name_en, romanization,
+  description, substitute, where_to_find, storage_note, created_at
+) VALUES (
+  ${esc(ing.slug)}, ${esc(ing.nameKr)}, ${esc(ing.nameEn)}, ${esc(ing.romanization)},
+  ${esc(ing.description)}, ${esc(ing.substitute)}, ${esc(ing.whereToFind)}, ${esc(ing.storageNote)},
+  ${ts}
+);`);
+
+    lines.push(`
+INSERT OR IGNORE INTO recipe_ingredients (recipe_id, ingredient_id, amount, unit, note, order_index)
+SELECT r.id, i.id, ${esc(ing.amount)}, ${esc(ing.unit)}, ${esc(ing.note)}, ${ing.orderIndex}
+FROM recipes r, ingredients i
+WHERE r.slug = ${esc(recipe.slug)} AND i.slug = ${esc(ing.slug)};`);
   }
 
-  const result = db.prepare(`
-    INSERT INTO recipes (
-      slug, title_kr, title_en, romanization, description, cultural_note,
-      difficulty, cooking_time, servings, region,
-      instructions, tips, k_drama_appearances,
-      meta_title, meta_description, keywords,
-      published, ai_provider, ai_model, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    recipe.slug,
-    recipe.titleKr,
-    recipe.titleEn,
-    recipe.romanization,
-    recipe.description,
-    recipe.culturalNote ?? null,
-    recipe.difficulty,
-    recipe.cookingTime,
-    recipe.servings,
-    recipe.region ?? null,
-    JSON.stringify(recipe.instructions),
-    JSON.stringify(recipe.tips ?? []),
-    JSON.stringify(recipe.kDramaAppearances ?? []),
-    recipe.metaTitle ?? null,
-    recipe.metaDescription ?? null,
-    JSON.stringify(recipe.keywords ?? []),
-    1,  // published = true (검토 후 false로 바꾸고 싶으면 0)
-    recipe.aiProvider ?? null,
-    recipe.aiModel ?? null,
-    now(),
-    now()
-  );
-
-  return result.lastInsertRowid as number;
-}
-
-function insertRecipeIngredients(
-  db: InstanceType<typeof Database>,
-  recipeId: number,
-  ingredients: GeneratedIngredient[]
-) {
-  const stmt = db.prepare(`
-    INSERT INTO recipe_ingredients (recipe_id, ingredient_id, amount, unit, note, order_index)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-
-  for (const ing of ingredients) {
-    const ingId = upsertIngredient(db, ing);
-    stmt.run(recipeId, ingId, ing.amount, ing.unit ?? null, ing.note ?? null, ing.orderIndex);
+  // ── korean_phrases ──
+  for (const p of recipe.phrases ?? []) {
+    lines.push(`
+INSERT INTO korean_phrases (
+  recipe_id, phrase_kr, phrase_en, romanization,
+  part_of_speech, level, grammar_point, grammar_explanation,
+  example_kr, example_romanization, example_en,
+  usage_note, context_type, created_at
+)
+SELECT r.id,
+  ${esc(p.phraseKr)}, ${esc(p.phraseEn)}, ${esc(p.romanization)},
+  ${esc(p.partOfSpeech)}, ${esc(p.level)},
+  ${esc(p.grammarPoint)}, ${esc(p.grammarExplanation)},
+  ${esc(p.exampleKr)}, ${esc(p.exampleRomanization)}, ${esc(p.exampleEn)},
+  ${esc(p.usageNote)}, ${esc(p.contextType ?? 'cooking')},
+  ${ts}
+FROM recipes r WHERE r.slug = ${esc(recipe.slug)}
+AND NOT EXISTS (
+  SELECT 1 FROM korean_phrases kp
+  JOIN recipes r2 ON kp.recipe_id = r2.id
+  WHERE r2.slug = ${esc(recipe.slug)} AND kp.phrase_kr = ${esc(p.phraseKr)}
+);`);
   }
-}
 
-function insertPhrases(
-  db: InstanceType<typeof Database>,
-  recipeId: number,
-  phrases: GeneratedPhrase[]
-) {
-  const stmt = db.prepare(`
-    INSERT INTO korean_phrases (
-      recipe_id, phrase_kr, phrase_en, romanization,
-      part_of_speech, level, grammar_point, grammar_explanation,
-      example_kr, example_romanization, example_en,
-      usage_note, context_type, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  for (const p of phrases) {
-    stmt.run(
-      recipeId, p.phraseKr, p.phraseEn, p.romanization,
-      p.partOfSpeech ?? null, p.level,
-      p.grammarPoint ?? null, p.grammarExplanation ?? null,
-      p.exampleKr ?? null, p.exampleRomanization ?? null, p.exampleEn ?? null,
-      p.usageNote ?? null, p.contextType ?? 'cooking',
-      now()
-    );
+  // ── quizzes ──
+  for (const q of recipe.quizzes ?? []) {
+    lines.push(`
+INSERT INTO quizzes (recipe_id, type, difficulty, question, options, answer, explanation, created_at)
+SELECT r.id,
+  ${esc(q.type)}, ${esc(q.difficulty)}, ${esc(q.question)},
+  ${esc(q.options ? JSON.stringify(q.options) : null)},
+  ${esc(q.answer)}, ${esc(q.explanation)},
+  ${ts}
+FROM recipes r WHERE r.slug = ${esc(recipe.slug)}
+AND NOT EXISTS (
+  SELECT 1 FROM quizzes qz
+  JOIN recipes r2 ON qz.recipe_id = r2.id
+  WHERE r2.slug = ${esc(recipe.slug)} AND qz.question = ${esc(q.question)}
+);`);
   }
-}
 
-function insertQuizzes(
-  db: InstanceType<typeof Database>,
-  recipeId: number,
-  quizzes: GeneratedQuiz[]
-) {
-  const stmt = db.prepare(`
-    INSERT INTO quizzes (recipe_id, type, difficulty, question, options, answer, explanation, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  for (const q of quizzes) {
-    stmt.run(
-      recipeId, q.type, q.difficulty, q.question,
-      q.options ? JSON.stringify(q.options) : null,
-      q.answer, q.explanation ?? null,
-      now()
-    );
-  }
+  return lines.join('\n');
 }
 
 // ─── 메인 ─────────────────────────────────────────────────────────────────────
@@ -249,83 +198,53 @@ async function seed() {
   const outputDir = path.join(process.cwd(), 'scripts', 'output');
 
   if (!fs.existsSync(outputDir)) {
-    console.error('❌ scripts/output/ 폴더가 없습니다. 먼저 npm run generate 를 실행하세요.');
+    console.error('❌ scripts/output/ 폴더가 없습니다. 먼저 npm run generate 또는 npm run mock 을 실행하세요.');
     process.exit(1);
   }
 
   const jsonFiles = fs.readdirSync(outputDir).filter(f => f.endsWith('.json'));
 
   if (jsonFiles.length === 0) {
-    console.error('❌ scripts/output/ 에 JSON 파일이 없습니다. npm run generate 를 먼저 실행하세요.');
+    console.error('❌ scripts/output/ 에 JSON 파일이 없습니다.');
     process.exit(1);
   }
 
   console.log(`\n🇰🇷 Seed 시작 — ${jsonFiles.length}개 파일 발견\n${'─'.repeat(48)}`);
 
-  const db = getLocalDB();
-
-  // 마이그레이션이 안 되어 있으면 자동 실행
-  const tableExists = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='recipes'").get();
-  if (!tableExists) {
-    console.log('⚙️  테이블이 없습니다. 마이그레이션을 먼저 실행하세요:');
-    console.log('   npm run db:migrate:local\n');
-    process.exit(1);
-  }
-
+  const tmpPath = path.join(process.cwd(), 'scripts', '_seed_tmp.sql');
+  let allSQL = '';
   let success = 0;
   let skipped = 0;
-  let failed  = 0;
 
   for (const file of jsonFiles) {
     const filePath = path.join(outputDir, file);
-    console.log(`\n📄 처리 중: ${file}`);
-
+    console.log(`📄 처리 중: ${file}`);
     try {
       const raw = fs.readFileSync(filePath, 'utf-8');
       const recipe: GeneratedRecipe = JSON.parse(raw);
-
-      // 트랜잭션으로 묶기 (원자적 삽입)
-      const insertAll = db.transaction(() => {
-        const recipeId = insertRecipe(db, recipe);
-        if (!recipeId) { skipped++; return; }
-
-        insertRecipeIngredients(db, recipeId, recipe.ingredients ?? []);
-        insertPhrases(db, recipeId, recipe.phrases ?? []);
-        insertQuizzes(db, recipeId, recipe.quizzes ?? []);
-
-        console.log(`  ✅ ${recipe.titleEn} (${recipe.titleKr})`);
-        console.log(`     재료: ${recipe.ingredients?.length ?? 0}개 | 표현: ${recipe.phrases?.length ?? 0}개 | 퀴즈: ${recipe.quizzes?.length ?? 0}개`);
-        success++;
-      });
-
-      insertAll();
-
+      allSQL += buildSQL(recipe);
+      console.log(`  ✅ ${recipe.titleEn} (${recipe.titleKr})`);
+      success++;
     } catch (err) {
       console.error(`  ❌ 실패:`, err instanceof Error ? err.message : err);
-      failed++;
+      skipped++;
     }
   }
 
-  // ── 결과 요약 ──
+  // SQL 파일 저장 후 wrangler로 실행
+  fs.writeFileSync(tmpPath, allSQL, 'utf-8');
+
+  try {
+    execSync(
+      `npx wrangler d1 execute korean-food-db --local --file=${tmpPath}`,
+      { stdio: 'inherit' }
+    );
+  } finally {
+    fs.unlinkSync(tmpPath);
+  }
+
   console.log(`\n${'─'.repeat(48)}`);
-  console.log(`🎉 Seed 완료!`);
-  console.log(`   ✅ 성공: ${success}개`);
-  console.log(`   ⏩ 스킵: ${skipped}개 (이미 존재)`);
-  if (failed > 0) console.log(`   ❌ 실패: ${failed}개`);
-
-  // ── DB 현황 출력 ──
-  const recipeCount     = (db.prepare('SELECT COUNT(*) as c FROM recipes').get() as { c: number }).c;
-  const ingredientCount = (db.prepare('SELECT COUNT(*) as c FROM ingredients').get() as { c: number }).c;
-  const phraseCount     = (db.prepare('SELECT COUNT(*) as c FROM korean_phrases').get() as { c: number }).c;
-  const quizCount       = (db.prepare('SELECT COUNT(*) as c FROM quizzes').get() as { c: number }).c;
-
-  console.log(`\n📊 DB 현황:`);
-  console.log(`   recipes:        ${recipeCount}개`);
-  console.log(`   ingredients:    ${ingredientCount}개`);
-  console.log(`   korean_phrases: ${phraseCount}개`);
-  console.log(`   quizzes:        ${quizCount}개\n`);
-
-  db.close();
+  console.log(`🎉 Seed 완료! ✅ ${success}개 처리${skipped > 0 ? ` / ❌ ${skipped}개 실패` : ''}\n`);
 }
 
 seed().catch(err => {

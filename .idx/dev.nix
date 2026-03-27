@@ -8,6 +8,8 @@
   packages = [
     pkgs.nodejs_22
     pkgs.python3
+    pkgs.gnumake
+    pkgs.gcc
   ];
 
   # Sets environment variables in the workspace
@@ -23,7 +25,7 @@
       enable = true;
       previews = {
         web = {
-          command = ["bash" "-c" "npm install --ignore-scripts && npm run dev -- --port $PORT --host 0.0.0.0"];
+          command = ["bash" "-c" "npm install --ignore-scripts && npm run db:migrate:local && npm run dev -- --port $PORT --host 0.0.0.0"];
           manager = "web";
         };
       };
@@ -39,6 +41,7 @@
       # Runs when the workspace is (re)started
       onStart = {
         npm-install = "npm install --ignore-scripts";
+        db-migrate = "npm run db:migrate:local && npm run mock && npm run db:seed";
       };
     };
   };

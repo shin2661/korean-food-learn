@@ -12,6 +12,7 @@
     "db:migrate:prod": "wrangler d1 execute korean-food-db --remote --file=./db/migrations/0000_initial.sql",
 
     "generate": "tsx scripts/generate.ts",
+    "mock": "tsx scripts/mock.ts",
 
     "db:seed": "tsx scripts/seed.ts",
     "db:seed:prod": "tsx scripts/seed-prod.ts --prod"
