@@ -3,7 +3,7 @@ import cloudflare from '@astrojs/cloudflare';
 import tailwind from '@astrojs/tailwind';
 
 export default defineConfig({
-  output: 'hybrid',  // 정적 기본 + 필요한 페이지만 SSR (Cloudflare Functions)
+  output: 'server',  // SSR (Cloudflare Functions)
 
   adapter: cloudflare({
     platformProxy: {

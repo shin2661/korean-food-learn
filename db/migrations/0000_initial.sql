@@ -4,9 +4,6 @@
 -- Run prod    : npm run db:migrate:prod
 -- ============================================================
 
-PRAGMA journal_mode = WAL;
-PRAGMA foreign_keys = ON;
-
 -- ─── categories ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS categories (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
