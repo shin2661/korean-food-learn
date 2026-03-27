@@ -9,6 +9,7 @@ dist/
 .env
 .env.local
 .env.*.local
+.dev.vars
 
 # generated content (DB에 들어간 후 불필요)
 scripts/output/

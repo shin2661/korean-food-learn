@@ -7,6 +7,11 @@ declare namespace App {
     runtime: {
       env: {
         DB: D1Database;
+        ANTHROPIC_API_KEY?: string;
+        GEMINI_API_KEY?: string;
+        OPENAI_API_KEY?: string;
+        GROQ_API_KEY?: string;
+        ADMIN_SECRET?: string;
       };
     };
   }

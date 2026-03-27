@@ -1,0 +1,489 @@
+---
+export const prerender = false;
+
+// Gemini models are loaded dynamically from the API
+const STATIC_MODELS: Record<string, { id: string; label: string }[]> = {
+  claude: [
+    { id: 'claude-opus-4-6',          label: 'Claude Opus 4.6 (최고 품질)' },
+    { id: 'claude-sonnet-4-6',        label: 'Claude Sonnet 4.6 (추천)' },
+    { id: 'claude-haiku-4-5',         label: 'Claude Haiku 4.5 (빠름)' },
+  ],
+  openai: [
+    { id: 'gpt-4o',                   label: 'GPT-4o (최고 품질)' },
+    { id: 'gpt-4o-mini',              label: 'GPT-4o Mini (빠름)' },
+  ],
+  groq: [
+    { id: 'llama-3.3-70b-versatile',  label: 'Llama 3.3 70B (추천)' },
+    { id: 'llama-3.1-8b-instant',     label: 'Llama 3.1 8B (매우 빠름)' },
+    { id: 'gemma2-9b-it',             label: 'Gemma 2 9B' },
+    { id: 'mixtral-8x7b-32768',       label: 'Mixtral 8x7B' },
+  ],
+};
+---
+
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>콘텐츠 생성 — Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: 'DM Sans', sans-serif;
+        background: #F5F5F0;
+        color: #1A1A1A;
+        min-height: 100vh;
+      }
+
+      .topbar {
+        background: #1A1A1A;
+        color: #fff;
+        padding: 0 2rem;
+        height: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .topbar-title {
+        font-family: 'Noto Sans KR', sans-serif;
+        font-weight: 700;
+        font-size: 1rem;
+        color: #C0392B;
+      }
+      .topbar a {
+        font-size: 0.85rem;
+        color: #aaa;
+        text-decoration: none;
+      }
+      .topbar a:hover { color: #fff; }
+
+      .container {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 2.5rem 1.5rem 4rem;
+      }
+
+      h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-bottom: 0.4rem;
+      }
+      .subtitle {
+        font-size: 0.9rem;
+        color: #666;
+        margin-bottom: 2rem;
+      }
+
+      /* ── Card ── */
+      .card {
+        background: #fff;
+        border: 1px solid #e8e8e0;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      }
+      .card h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1.25rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #f0f0e8;
+      }
+
+      /* ── Form ── */
+      .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+      @media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+
+      .field { display: flex; flex-direction: column; gap: 0.35rem; }
+      label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #555;
+      }
+      select, textarea, input[type="text"] {
+        width: 100%;
+        padding: 0.6rem 0.85rem;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.95rem;
+        background: #fafaf7;
+        transition: border-color 0.15s;
+        outline: none;
+      }
+      select:focus, textarea:focus, input[type="text"]:focus {
+        border-color: #C0392B;
+        background: #fff;
+      }
+      textarea {
+        resize: vertical;
+        min-height: 90px;
+      }
+      .hint {
+        font-size: 0.78rem;
+        color: #888;
+        margin-top: 0.2rem;
+      }
+
+      /* ── Buttons ── */
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.7rem 1.75rem;
+        background: #C0392B;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-family: 'DM Sans', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s, opacity 0.15s;
+      }
+      .btn-primary:hover { background: #a93226; }
+      .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+      /* ── Progress ── */
+      #status-section { display: none; }
+
+      .progress-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        padding: 0.9rem 1rem;
+        border-radius: 8px;
+        margin-bottom: 0.6rem;
+        font-size: 0.9rem;
+        border: 1px solid transparent;
+      }
+      .progress-item.pending  { background: #f7f7f2; color: #888; border-color: #ebebdf; }
+      .progress-item.loading  { background: #fef9f0; color: #a06020; border-color: #f5e0b0; }
+      .progress-item.success  { background: #f0faf4; color: #1a7a40; border-color: #b0e0c0; }
+      .progress-item.skipped  { background: #f5f5f5; color: #888; border-color: #e0e0e0; }
+      .progress-item.error    { background: #fff5f5; color: #c0392b; border-color: #f5c0b0; }
+
+      .progress-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+      .progress-body { flex: 1; }
+      .progress-name { font-weight: 600; }
+      .progress-detail { font-size: 0.8rem; opacity: 0.8; margin-top: 0.2rem; }
+
+      /* Stats row inside success */
+      .stat-pills {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.4rem;
+        flex-wrap: wrap;
+      }
+      .stat-pill {
+        padding: 0.15rem 0.6rem;
+        background: #d0f0da;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #1a7a40;
+      }
+
+      /* Recipe link */
+      .progress-link {
+        font-size: 0.8rem;
+        color: #C0392B;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .progress-link:hover { text-decoration: underline; }
+
+      /* ── Summary ── */
+      #summary {
+        display: none;
+        margin-top: 1rem;
+        padding: 1rem 1.25rem;
+        background: #f0faf4;
+        border: 1px solid #b0e0c0;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        color: #1a7a40;
+      }
+
+      /* ── Spinner ── */
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #a06020;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        flex-shrink: 0;
+        margin-top: 3px;
+      }
+    </style>
+  </head>
+  <body>
+
+    <div class="topbar">
+      <span class="topbar-title">🇰🇷 Admin — 콘텐츠 생성</span>
+      <a href="/recipes">← 레시피 목록 보기</a>
+    </div>
+
+    <div class="container">
+      <h1>레시피 콘텐츠 생성</h1>
+      <p class="subtitle">AI로 한국 음식 레시피 + 한국어 학습 콘텐츠를 자동 생성하고 DB에 저장합니다.</p>
+
+      <!-- AI 설정 -->
+      <div class="card">
+        <h2>AI 설정</h2>
+        <div class="form-row">
+          <div class="field">
+            <label for="provider">Provider</label>
+            <select id="provider">
+              <option value="claude">Claude (Anthropic)</option>
+              <option value="gemini">Gemini (Google)</option>
+              <option value="openai">OpenAI (GPT)</option>
+              <option value="groq">Groq</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="model">Model</label>
+            <select id="model"></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 음식 입력 -->
+      <div class="card">
+        <h2>음식 이름 입력</h2>
+        <div class="field">
+          <label for="foods">음식 이름</label>
+          <textarea
+            id="foods"
+            placeholder="김치찌개&#10;불고기, 갈비탕&#10;또는 한 줄에 하나씩, 또는 쉼표로 구분"
+          ></textarea>
+          <span class="hint">한국어 또는 영어 가능 · 여러 개: 쉼표(,) 또는 줄바꿈으로 구분</span>
+        </div>
+        <br />
+        <button class="btn-primary" id="generateBtn">
+          <span id="btnText">생성 시작</span>
+        </button>
+      </div>
+
+      <!-- 진행 상황 -->
+      <div id="status-section">
+        <div class="card">
+          <h2 id="status-title">생성 중...</h2>
+          <div id="progress-list"></div>
+          <div id="summary"></div>
+        </div>
+      </div>
+    </div>
+
+    <script define:vars={{ STATIC_MODELS }}>
+      const providerEl  = document.getElementById('provider');
+      const modelEl     = document.getElementById('model');
+      const foodsEl     = document.getElementById('foods');
+      const generateBtn = document.getElementById('generateBtn');
+      const btnText     = document.getElementById('btnText');
+      const statusSection = document.getElementById('status-section');
+      const statusTitle   = document.getElementById('status-title');
+      const progressList  = document.getElementById('progress-list');
+      const summaryEl     = document.getElementById('summary');
+
+      // ── Model list update ──────────────────────────────────────────────────
+
+      function setModelOptions(models, placeholder = null) {
+        if (placeholder) {
+          modelEl.innerHTML = `<option disabled>${placeholder}</option>`;
+        } else {
+          modelEl.innerHTML = models.map(m =>
+            `<option value="${m.id}">${m.label}</option>`
+          ).join('');
+        }
+      }
+
+      async function updateModels() {
+        const provider = providerEl.value;
+
+        if (provider === 'gemini') {
+          setModelOptions([], '불러오는 중...');
+          modelEl.disabled = true;
+          try {
+            const res = await fetch('/api/models?provider=gemini');
+            const data = await res.json();
+            if (data.error) {
+              setModelOptions([], `오류: ${data.error}`);
+            } else {
+              setModelOptions(data.models);
+            }
+          } catch {
+            setModelOptions([], '모델 목록을 불러오지 못했습니다');
+          } finally {
+            modelEl.disabled = false;
+          }
+        } else {
+          setModelOptions(STATIC_MODELS[provider] ?? []);
+        }
+      }
+
+      providerEl.addEventListener('change', updateModels);
+      updateModels();
+
+      // ── Parse food list ────────────────────────────────────────────────────
+
+      function parseFoods(raw) {
+        return raw
+          .split(/[\n,]+/)
+          .map(s => s.trim())
+          .filter(Boolean);
+      }
+
+      // ── Progress item helpers ──────────────────────────────────────────────
+
+      function createProgressItem(id, name, state = 'pending') {
+        const el = document.createElement('div');
+        el.id = `item-${id}`;
+        el.className = `progress-item ${state}`;
+        el.innerHTML = `
+          <div class="progress-icon" id="icon-${id}">⏳</div>
+          <div class="progress-body">
+            <div class="progress-name">${name}</div>
+            <div class="progress-detail" id="detail-${id}">대기 중</div>
+          </div>
+        `;
+        progressList.appendChild(el);
+      }
+
+      function setItemState(id, state, detail = '', extra = '') {
+        const el     = document.getElementById(`item-${id}`);
+        const icon   = document.getElementById(`icon-${id}`);
+        const detail_el = document.getElementById(`detail-${id}`);
+        if (!el) return;
+
+        el.className = `progress-item ${state}`;
+
+        const icons = {
+          pending: '⏳',
+          loading: '<div class="spinner"></div>',
+          success: '✅',
+          skipped: '⏩',
+          error:   '❌',
+        };
+        icon.innerHTML = icons[state] ?? '⏳';
+        detail_el.innerHTML = detail + (extra ? `<br>${extra}` : '');
+      }
+
+      // ── Main generate ──────────────────────────────────────────────────────
+
+      generateBtn.addEventListener('click', async () => {
+        const foods = parseFoods(foodsEl.value);
+        if (!foods.length) {
+          alert('음식 이름을 하나 이상 입력해주세요.');
+          return;
+        }
+
+        const provider = providerEl.value;
+        const model    = modelEl.value;
+
+        // Reset UI
+        progressList.innerHTML = '';
+        summaryEl.style.display = 'none';
+        statusSection.style.display = 'block';
+        statusTitle.textContent = `생성 중... (0 / ${foods.length})`;
+        generateBtn.disabled = true;
+        btnText.textContent = '생성 중...';
+
+        // Create pending items
+        foods.forEach((name, i) => createProgressItem(i, name, 'pending'));
+
+        let created = 0, skipped = 0, failed = 0;
+
+        for (let i = 0; i < foods.length; i++) {
+          const name = foods[i];
+          statusTitle.textContent = `생성 중... (${i} / ${foods.length})`;
+
+          setItemState(i, 'loading', `${provider} / ${model} 호출 중...`);
+
+          try {
+            const res = await fetch('/api/generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ provider, model, foodName: name }),
+            });
+
+            const data = await res.json();
+
+            if (!res.ok || data.error) {
+              setItemState(i, 'error', data.error ?? '서버 오류');
+              failed++;
+            } else if (data.status === 'skipped') {
+              setItemState(
+                i,
+                'skipped',
+                `이미 DB에 존재합니다 (${data.slug})`,
+                `<a class="progress-link" href="/recipes/${data.slug}" target="_blank">레시피 보기 →</a>`,
+              );
+              skipped++;
+            } else {
+              const pills = [
+                `재료 ${data.ingredientsCount}개`,
+                `표현 ${data.phrasesCount}개`,
+                `퀴즈 ${data.quizzesCount}개`,
+              ].map(t => `<span class="stat-pill">${t}</span>`).join('');
+
+              setItemState(
+                i,
+                'success',
+                `<span>${data.titleKr} · <code>${data.slug}</code></span>
+                 <div class="stat-pills">${pills}</div>`,
+                `<a class="progress-link" href="/recipes/${data.slug}" target="_blank">레시피 보기 →</a>`,
+              );
+              created++;
+            }
+          } catch (err) {
+            setItemState(i, 'error', err?.message ?? '네트워크 오류');
+            failed++;
+          }
+
+          // Delay between requests to avoid rate limits
+          if (i < foods.length - 1) {
+            await new Promise(r => setTimeout(r, 1200));
+          }
+        }
+
+        // Done
+        statusTitle.textContent = `완료 (${foods.length}개)`;
+        generateBtn.disabled = false;
+        btnText.textContent = '다시 생성';
+
+        const parts = [];
+        if (created)  parts.push(`✅ 생성 ${created}개`);
+        if (skipped)  parts.push(`⏩ 스킵 ${skipped}개 (이미 존재)`);
+        if (failed)   parts.push(`❌ 실패 ${failed}개`);
+        summaryEl.textContent = parts.join('  ·  ');
+        summaryEl.style.display = 'block';
+        if (failed > 0) {
+          summaryEl.style.background = '#fff5f5';
+          summaryEl.style.borderColor = '#f5c0b0';
+          summaryEl.style.color = '#c0392b';
+        }
+      });
+    </script>
+
+  </body>
+</html>
