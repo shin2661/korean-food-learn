@@ -10,12 +10,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
     return new Response(JSON.stringify({ error: 'Only gemini supports dynamic model listing' }), { status: 400, headers });
   }
 
-  const env = (locals as any).runtime?.env ?? {};
-  const apiKey: string | undefined = env.GEMINI_API_KEY;
+  const runtimeEnv = (locals as any).runtime?.env ?? {};
+  const apiKey: string | undefined = runtimeEnv.GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY;
 
   if (!apiKey) {
     return new Response(
-      JSON.stringify({ error: 'GEMINI_API_KEY is not configured' }),
+      JSON.stringify({ error: 'GEMINI_API_KEY가 설정되지 않았습니다. .env.local에 추가하거나 Cloudflare Secrets에 등록하세요.' }),
       { status: 400, headers },
     );
   }

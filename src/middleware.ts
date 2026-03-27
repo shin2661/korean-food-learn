@@ -7,8 +7,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     return next();
   }
 
-  const env = (context.locals as any).runtime?.env ?? {};
-  const adminSecret: string | undefined = env.ADMIN_SECRET;
+  const runtimeEnv = (context.locals as any).runtime?.env ?? {};
+  const adminSecret: string | undefined = runtimeEnv.ADMIN_SECRET || import.meta.env.ADMIN_SECRET;
 
   // ADMIN_SECRET이 설정되지 않은 경우 접근 차단 (프로덕션 안전장치)
   if (!adminSecret) {

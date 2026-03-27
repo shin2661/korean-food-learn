@@ -263,6 +263,7 @@ const STATIC_MODELS: Record<string, { id: string; label: string }[]> = {
           <div class="field">
             <label for="model">Model</label>
             <select id="model"></select>
+            <span class="hint" id="model-error" style="color:#c0392b;display:none;"></span>
           </div>
         </div>
       </div>
@@ -307,14 +308,24 @@ const STATIC_MODELS: Record<string, { id: string; label: string }[]> = {
 
       // ── Model list update ──────────────────────────────────────────────────
 
+      const modelErrorEl = document.getElementById('model-error');
+
       function setModelOptions(models, placeholder = null) {
+        modelErrorEl.style.display = 'none';
+        modelErrorEl.textContent = '';
         if (placeholder) {
-          modelEl.innerHTML = `<option disabled>${placeholder}</option>`;
+          modelEl.innerHTML = `<option disabled selected>${placeholder}</option>`;
         } else {
           modelEl.innerHTML = models.map(m =>
             `<option value="${m.id}">${m.label}</option>`
           ).join('');
         }
+      }
+
+      function setModelError(msg) {
+        modelEl.innerHTML = '<option disabled selected>모델 없음</option>';
+        modelErrorEl.textContent = msg;
+        modelErrorEl.style.display = 'block';
       }
 
       async function updateModels() {
@@ -327,12 +338,14 @@ const STATIC_MODELS: Record<string, { id: string; label: string }[]> = {
             const res = await fetch('/api/models?provider=gemini');
             const data = await res.json();
             if (data.error) {
-              setModelOptions([], `오류: ${data.error}`);
+              setModelError(`오류: ${data.error}`);
+            } else if (!data.models?.length) {
+              setModelError('사용 가능한 Gemini 모델이 없습니다.');
             } else {
               setModelOptions(data.models);
             }
-          } catch {
-            setModelOptions([], '모델 목록을 불러오지 못했습니다');
+          } catch (e) {
+            setModelError(`네트워크 오류: ${e?.message ?? e}`);
           } finally {
             modelEl.disabled = false;
           }

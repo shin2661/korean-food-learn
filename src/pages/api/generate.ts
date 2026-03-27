@@ -379,16 +379,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return new Response(JSON.stringify({ error: 'provider, model, foodName are required' }), { status: 400, headers });
   }
 
-  const env = (locals as any).runtime?.env ?? {};
+  const runtimeEnv = (locals as any).runtime?.env ?? {};
+  const metaEnv = import.meta.env;
+
+  const getKey = (runtimeKey: string, metaKey: string) =>
+    runtimeEnv[runtimeKey] || metaEnv[metaKey];
+
   const apiKey: string | undefined =
-    provider === 'claude'  ? env.ANTHROPIC_API_KEY
-    : provider === 'gemini'  ? env.GEMINI_API_KEY
-    : provider === 'groq'    ? env.GROQ_API_KEY
-    : env.OPENAI_API_KEY;
+    provider === 'claude' ? getKey('ANTHROPIC_API_KEY', 'ANTHROPIC_API_KEY')
+    : provider === 'gemini' ? getKey('GEMINI_API_KEY', 'GEMINI_API_KEY')
+    : provider === 'groq'   ? getKey('GROQ_API_KEY', 'GROQ_API_KEY')
+    : getKey('OPENAI_API_KEY', 'OPENAI_API_KEY');
 
   if (!apiKey) {
     return new Response(
-      JSON.stringify({ error: `API key for "${provider}" is not configured. Set it in .dev.vars (local) or Cloudflare Secrets (production).` }),
+      JSON.stringify({ error: `API key for "${provider}" is not configured. .env.local에 추가하거나 Cloudflare Secrets에 등록하세요.` }),
       { status: 400, headers },
     );
   }
