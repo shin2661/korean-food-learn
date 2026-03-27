@@ -1,0 +1,58 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const updated = '2025-01-01';
+---
+
+<BaseLayout
+  title="Privacy Policy | MasisnunKorean"
+  description="Privacy policy for MasisnunKorean — how we collect and use data."
+>
+  <div class="policy-wrap">
+    <div class="container">
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: {updated}</p>
+
+      <section>
+        <h2>1. Information We Collect</h2>
+        <p>We collect information you provide directly to us, such as when you use our website. We also automatically collect certain information about your device when you use our services, including information about your web browser, IP address, and pages viewed.</p>
+      </section>
+
+      <section>
+        <h2>2. Google AdSense & Cookies</h2>
+        <p>We use Google AdSense to serve advertisements. Google AdSense uses cookies to serve ads based on your prior visits to our website or other websites. You can opt out of personalized advertising by visiting <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener">Google Ads Settings</a>.</p>
+        <p>Third-party vendors, including Google, use cookies to serve ads based on your past visits to this site. Google's use of advertising cookies enables it and its partners to serve ads based on your visit to this and/or other sites on the Internet.</p>
+      </section>
+
+      <section>
+        <h2>3. How We Use Information</h2>
+        <p>We use the information we collect to: provide, maintain, and improve our services; display relevant advertisements through Google AdSense; analyze how visitors use our site; and comply with legal obligations.</p>
+      </section>
+
+      <section>
+        <h2>4. Data Sharing</h2>
+        <p>We do not sell, trade, or rent your personal information to third parties. We may share aggregated, non-personally identifiable information publicly. We may share information with Google and other advertising partners as described in Section 2.</p>
+      </section>
+
+      <section>
+        <h2>5. Your Choices</h2>
+        <p>You can opt out of personalized ads from Google and other participating companies through the <a href="https://optout.aboutads.info" target="_blank" rel="noopener">Digital Advertising Alliance</a> or the <a href="https://www.networkadvertising.org/choices" target="_blank" rel="noopener">Network Advertising Initiative</a>.</p>
+      </section>
+
+      <section>
+        <h2>6. Contact</h2>
+        <p>If you have any questions about this Privacy Policy, please contact us through our website.</p>
+      </section>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+.policy-wrap { padding:4rem 0 6rem; }
+.container { max-width:800px;margin:0 auto;padding:0 1.5rem; }
+h1 { font-family:'Playfair Display',serif;font-size:2.5rem;color:#1A1A1A;margin:0 0 0.5rem; }
+.updated { font-family:'DM Sans',sans-serif;font-size:0.85rem;color:#aaa;margin:0 0 3rem; }
+section { margin-bottom:2rem; }
+h2 { font-family:'Playfair Display',serif;font-size:1.35rem;color:#1A1A1A;margin:0 0 0.75rem;padding-bottom:0.4rem;border-bottom:2px solid #F0E6D3; }
+p { font-family:'DM Sans',sans-serif;font-size:0.98rem;color:#555;line-height:1.8;margin:0 0 0.75rem; }
+a { color:#C0392B; }
+</style>

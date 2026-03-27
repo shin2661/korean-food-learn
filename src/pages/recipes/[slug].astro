@@ -1,0 +1,712 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import DifficultyBadge from '../../components/DifficultyBadge.astro';
+import PhraseCard from '../../components/PhraseCard.astro';
+import QuizSection from '../../components/QuizSection.astro';
+import { getDB } from '../../lib/db';
+import { eq } from 'drizzle-orm';
+import { recipes, recipeIngredients, ingredients, koreanPhrases, quizzes } from '../../../db/schema';
+
+export const prerender = false; // SSR via Cloudflare Pages Functions
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/404');
+
+const db = getDB(Astro.locals);
+
+// ── 데이터 패치 ────────────────────────────────────────────
+const [recipe] = await db.select().from(recipes).where(eq(recipes.slug, slug)).limit(1);
+if (!recipe || !recipe.published) return Astro.redirect('/404');
+
+const recipeIngredientRows = await db
+  .select({ ri: recipeIngredients, ing: ingredients })
+  .from(recipeIngredients)
+  .innerJoin(ingredients, eq(recipeIngredients.ingredientId, ingredients.id))
+  .where(eq(recipeIngredients.recipeId, recipe.id))
+  .orderBy(recipeIngredients.orderIndex);
+
+const phrases = await db
+  .select()
+  .from(koreanPhrases)
+  .where(eq(koreanPhrases.recipeId, recipe.id));
+
+const quizItems = await db
+  .select()
+  .from(quizzes)
+  .where(eq(quizzes.recipeId, recipe.id));
+
+// ── JSON 파싱 ──────────────────────────────────────────────
+type Instruction = { step: number; textEn: string; koreanExpression: string; grammarNote?: string };
+type KDramaApp = { drama: string; episode: string; note: string };
+
+const instructions: Instruction[] = JSON.parse(recipe.instructions ?? '[]');
+const tips: string[] = JSON.parse(recipe.tips ?? '[]');
+const kdrama: KDramaApp[] = JSON.parse(recipe.kDramaAppearances ?? '[]');
+const keywords: string[] = JSON.parse(recipe.keywords ?? '[]');
+---
+
+<BaseLayout
+  title={recipe.metaTitle ?? `${recipe.titleEn} (${recipe.titleKr}) | Korean Food & Language`}
+  description={recipe.metaDescription ?? recipe.description}
+  keywords={keywords.join(', ')}
+  ogImage={recipe.imageUrl ?? undefined}
+>
+  <!-- ── Hero ─────────────────────────────────────────────── -->
+  <section class="recipe-hero">
+    <div class="hero-image-wrap">
+      {recipe.imageUrl
+        ? <img src={recipe.imageUrl} alt={recipe.titleEn} class="hero-img" />
+        : <div class="hero-img-placeholder">🍲</div>
+      }
+      <div class="hero-overlay"></div>
+    </div>
+    <div class="hero-content">
+      <div class="breadcrumb">
+        <a href="/">Home</a>
+        <span>›</span>
+        <a href="/recipes">Recipes</a>
+        <span>›</span>
+        <span>{recipe.titleEn}</span>
+      </div>
+      <h1 class="recipe-title">
+        <span class="title-kr">{recipe.titleKr}</span>
+        <span class="title-en">{recipe.titleEn}</span>
+      </h1>
+      <p class="recipe-rom">/{recipe.romanization}/</p>
+      <div class="recipe-stats">
+        <DifficultyBadge difficulty={recipe.difficulty as 'easy' | 'medium' | 'hard'} />
+        <span class="stat">⏱ {recipe.cookingTime} min</span>
+        <span class="stat">🍽 Serves {recipe.servings}</span>
+        {recipe.region && <span class="stat">📍 {recipe.region}</span>}
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Body ─────────────────────────────────────────────── -->
+  <div class="recipe-body">
+    <div class="recipe-main">
+
+      <!-- Description + Cultural Note -->
+      <section class="section-block">
+        <p class="recipe-description">{recipe.description}</p>
+        {recipe.culturalNote && (
+          <div class="cultural-note">
+            <span class="cultural-icon">🏮</span>
+            <p>{recipe.culturalNote}</p>
+          </div>
+        )}
+      </section>
+
+      <!-- Ingredients -->
+      <section class="section-block" id="ingredients">
+        <h2 class="section-title">Ingredients</h2>
+        <ul class="ingredient-list">
+          {recipeIngredientRows.map(({ ri, ing }) => (
+            <li class="ingredient-item">
+              <a href={`/ingredients/${ing.slug}`} class="ingredient-link">
+                <div class="ingredient-name">
+                  <span class="ing-en">{ing.nameEn}</span>
+                  <span class="ing-kr">{ing.nameKr}</span>
+                  <span class="ing-rom">({ing.romanization})</span>
+                </div>
+              </a>
+              <div class="ingredient-amount">
+                <span class="amount">{ri.amount} {ri.unit ?? ''}</span>
+                {ri.note && <span class="ing-note">{ri.note}</span>}
+              </div>
+              {ing.substitute && (
+                <div class="substitute">
+                  <span class="sub-label">Sub:</span> {ing.substitute}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <!-- Instructions -->
+      <section class="section-block" id="instructions">
+        <h2 class="section-title">How to Make It</h2>
+        <ol class="step-list">
+          {instructions.map((step) => (
+            <li class="step-item">
+              <div class="step-number">{step.step}</div>
+              <div class="step-content">
+                <p class="step-text">{step.textEn}</p>
+                {step.koreanExpression && (
+                  <div class="step-korean">
+                    <span class="step-kr-label">🇰🇷 Korean</span>
+                    <span class="step-kr-phrase">{step.koreanExpression}</span>
+                    {step.grammarNote && (
+                      <span class="step-grammar">{step.grammarNote}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <!-- Tips -->
+      {tips.length > 0 && (
+        <section class="section-block">
+          <h2 class="section-title">Tips & Tricks</h2>
+          <ul class="tips-list">
+            {tips.map(tip => (
+              <li class="tip-item">
+                <span class="tip-icon">✦</span>
+                <span>{tip}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <!-- K-Drama Appearances -->
+      {kdrama.length > 0 && (
+        <section class="section-block kdrama-section">
+          <h2 class="section-title">📺 Spotted in K-Dramas</h2>
+          <div class="kdrama-list">
+            {kdrama.map(app => (
+              <div class="kdrama-item">
+                <div class="kdrama-drama">{app.drama}</div>
+                <div class="kdrama-ep">{app.episode}</div>
+                <p class="kdrama-note">{app.note}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <!-- Korean Language Corner -->
+      {phrases.length > 0 && (
+        <section class="section-block" id="learn-korean">
+          <div class="language-header">
+            <h2 class="section-title">🇰🇷 Korean Language Corner</h2>
+            <p class="language-subtitle">
+              Learn {phrases.length} Korean expressions from this recipe
+            </p>
+          </div>
+          <div class="phrase-grid">
+            {phrases.map(phrase => (
+              <PhraseCard
+                phraseKr={phrase.phraseKr}
+                phraseEn={phrase.phraseEn}
+                romanization={phrase.romanization}
+                partOfSpeech={phrase.partOfSpeech}
+                level={phrase.level}
+                grammarPoint={phrase.grammarPoint}
+                grammarExplanation={phrase.grammarExplanation}
+                exampleKr={phrase.exampleKr}
+                exampleRomanization={phrase.exampleRomanization}
+                exampleEn={phrase.exampleEn}
+                usageNote={phrase.usageNote}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <!-- AdSense Slot (mid-content) -->
+      <div class="adsense-slot" aria-hidden="true">
+        <!-- Google AdSense: ca-pub-XXXXXXX / slot mid-recipe -->
+      </div>
+
+      <!-- Quiz -->
+      {quizItems.length > 0 && (
+        <QuizSection quizzes={quizItems} />
+      )}
+
+    </div>
+
+    <!-- ── Sidebar ──────────────────────────────────────────── -->
+    <aside class="recipe-sidebar">
+      <!-- Quick Nav -->
+      <div class="sidebar-card sticky-nav">
+        <h3>Jump to</h3>
+        <nav>
+          <a href="#ingredients">📋 Ingredients</a>
+          <a href="#instructions">👨‍🍳 Instructions</a>
+          <a href="#learn-korean">🇰🇷 Learn Korean</a>
+          <a href="#quizSection">🧠 Quiz</a>
+        </nav>
+      </div>
+
+      <!-- Ingredient quick list -->
+      <div class="sidebar-card">
+        <h3>You'll Need</h3>
+        <ul class="sidebar-ing-list">
+          {recipeIngredientRows.map(({ ri, ing }) => (
+            <li>
+              <span class="si-kr">{ing.nameKr}</span>
+              <span class="si-amount">{ri.amount} {ri.unit ?? ''}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <!-- AdSense Sidebar -->
+      <div class="adsense-slot sidebar-ad" aria-hidden="true">
+        <!-- Google AdSense: sidebar slot -->
+      </div>
+    </aside>
+  </div>
+
+  <!-- ── Share ─────────────────────────────────────────────── -->
+  <div class="share-bar">
+    <span>Share this recipe</span>
+    <button class="share-btn" id="copyLinkBtn">🔗 Copy Link</button>
+  </div>
+
+  <script>
+    const btn = document.getElementById('copyLinkBtn');
+    btn?.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(window.location.href);
+      btn.textContent = '✓ Copied!';
+      setTimeout(() => { btn.textContent = '🔗 Copy Link'; }, 2000);
+    });
+  </script>
+</BaseLayout>
+
+<style>
+/* ── Hero ─────────────────────────────────────────────────── */
+.recipe-hero {
+  position: relative;
+  min-height: 420px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+.hero-image-wrap {
+  position: absolute;
+  inset: 0;
+}
+.hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hero-img-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #F0E6D3, #e8d5c0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8rem;
+}
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.1) 60%);
+}
+.hero-content {
+  position: relative;
+  z-index: 2;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem;
+  width: 100%;
+}
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.7);
+}
+.breadcrumb a {
+  color: rgba(255,255,255,0.7);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.breadcrumb a:hover { color: #fff; }
+
+.recipe-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0 0 0.4rem;
+}
+.title-kr {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-weight: 700;
+  font-size: 2rem;
+  color: #fff;
+  line-height: 1.2;
+}
+.title-en {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.75rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.15;
+}
+.recipe-rom {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1rem;
+  color: rgba(255,255,255,0.65);
+  font-style: italic;
+  margin: 0 0 1rem;
+}
+.recipe-stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.stat {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(4px);
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+/* ── Body Layout ──────────────────────────────────────────── */
+.recipe-body {
+  max-width: 1200px;
+  margin: 2.5rem auto;
+  padding: 0 1.5rem;
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 3rem;
+  align-items: start;
+}
+
+/* ── Sections ─────────────────────────────────────────────── */
+.section-block { margin-bottom: 3rem; }
+.section-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.6rem;
+  color: #1A1A1A;
+  margin: 0 0 1.25rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px solid #F0E6D3;
+}
+
+/* ── Description ──────────────────────────────────────────── */
+.recipe-description {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: #444;
+  margin: 0 0 1rem;
+}
+.cultural-note {
+  display: flex;
+  gap: 0.75rem;
+  background: #fef9f0;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+.cultural-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 0.1rem; }
+.cultural-note p {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: #7a6030;
+  margin: 0;
+}
+
+/* ── Ingredients ──────────────────────────────────────────── */
+.ingredient-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.ingredient-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  background: #fff;
+  border: 1px solid #e8e4de;
+  border-radius: 12px;
+  transition: border-color 0.15s;
+  flex-wrap: wrap;
+}
+.ingredient-item:hover { border-color: #C0392B; }
+.ingredient-link { text-decoration: none; flex: 1; min-width: 160px; }
+.ingredient-name { display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; }
+.ing-en {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1A1A1A;
+}
+.ing-kr {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 0.85rem;
+  color: #C0392B;
+  font-weight: 500;
+}
+.ing-rom {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  color: #aaa;
+  font-style: italic;
+}
+.ingredient-amount { text-align: right; }
+.amount {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #333;
+}
+.ing-note {
+  display: block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.75rem;
+  color: #999;
+}
+.substitute {
+  width: 100%;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  color: #888;
+  padding-top: 0.35rem;
+  border-top: 1px dashed #e8e4de;
+}
+.sub-label {
+  font-weight: 700;
+  color: #D4A017;
+  margin-right: 0.25rem;
+}
+
+/* ── Steps ────────────────────────────────────────────────── */
+.step-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  counter-reset: none;
+}
+.step-item {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+}
+.step-number {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  background: #C0392B;
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.step-content { flex: 1; }
+.step-text {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: #333;
+  margin: 0 0 0.6rem;
+}
+.step-korean {
+  background: #F0E6D3;
+  border-left: 3px solid #C0392B;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0 8px 8px 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.step-kr-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #C0392B;
+}
+.step-kr-phrase {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1A1A1A;
+}
+.step-grammar {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  color: #7a5c3a;
+  font-style: italic;
+  width: 100%;
+}
+
+/* ── Tips ─────────────────────────────────────────────────── */
+.tips-list { list-style: none; padding: 0; margin: 0; }
+.tip-item {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid #f0ebe4;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.95rem;
+  color: #444;
+  line-height: 1.6;
+}
+.tip-icon { color: #C0392B; flex-shrink: 0; margin-top: 0.2rem; }
+
+/* ── K-Drama ──────────────────────────────────────────────── */
+.kdrama-section { background: #f8f4ff; border-radius: 16px; padding: 1.5rem; }
+.kdrama-list { display: flex; flex-direction: column; gap: 1rem; }
+.kdrama-item {
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  border: 1px solid #e8e0f8;
+}
+.kdrama-drama {
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #4c1d95;
+}
+.kdrama-ep {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  color: #9ca3af;
+  margin-bottom: 0.3rem;
+}
+.kdrama-note {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  color: #555;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Language Corner ──────────────────────────────────────── */
+.language-header { margin-bottom: 1.25rem; }
+.language-subtitle {
+  font-family: 'DM Sans', sans-serif;
+  color: #888;
+  font-size: 0.9rem;
+  margin: 0.25rem 0 0;
+}
+.phrase-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+/* ── AdSense ──────────────────────────────────────────────── */
+.adsense-slot {
+  background: #f8f7f5;
+  border: 1px dashed #d0c8bc;
+  border-radius: 12px;
+  min-height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 2rem 0;
+  color: #bbb;
+  font-size: 0.75rem;
+  font-family: 'DM Sans', sans-serif;
+}
+.adsense-slot::after { content: 'Advertisement'; }
+
+/* ── Sidebar ──────────────────────────────────────────────── */
+.recipe-sidebar { display: flex; flex-direction: column; gap: 1.5rem; }
+.sidebar-card {
+  background: #fff;
+  border: 1px solid #e8e4de;
+  border-radius: 16px;
+  padding: 1.25rem;
+}
+.sticky-nav { position: sticky; top: 80px; }
+.sidebar-card h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem;
+  color: #1A1A1A;
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #F0E6D3;
+}
+.sidebar-card nav { display: flex; flex-direction: column; gap: 0.4rem; }
+.sidebar-card nav a {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.88rem;
+  color: #555;
+  text-decoration: none;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+.sidebar-card nav a:hover { background: #F0E6D3; color: #C0392B; }
+.sidebar-ing-list { list-style: none; padding: 0; margin: 0; }
+.sidebar-ing-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #f5f2ee;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+}
+.si-kr { font-family: 'Noto Sans KR', sans-serif; color: #333; font-weight: 500; }
+.si-amount { color: #888; }
+.sidebar-ad { min-height: 250px; }
+
+/* ── Share ────────────────────────────────────────────────── */
+.share-bar {
+  max-width: 1200px;
+  margin: 0 auto 4rem;
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  color: #888;
+}
+.share-btn {
+  padding: 0.5rem 1.25rem;
+  border: 2px solid #e8e4de;
+  background: #fff;
+  border-radius: 999px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.share-btn:hover { border-color: #C0392B; color: #C0392B; }
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .recipe-body {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  .recipe-sidebar { order: -1; }
+  .sticky-nav { position: static; }
+  .recipe-sidebar { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .sidebar-ad { display: none; }
+}
+@media (max-width: 640px) {
+  .title-en { font-size: 2rem; }
+  .title-kr { font-size: 1.5rem; }
+  .phrase-grid { grid-template-columns: 1fr; }
+  .recipe-sidebar { grid-template-columns: 1fr; }
+}
+</style>

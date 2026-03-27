@@ -1,0 +1,268 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  keywords?: string;
+  ogImage?: string;
+  canonical?: string;
+}
+
+const {
+  title,
+  description = 'Learn Korean naturally through authentic recipes. Cook Korean food and pick up real phrases, vocabulary, and grammar along the way.',
+  keywords = 'learn korean through food, korean recipes, korean language learning, korean cooking',
+  ogImage = '/og-default.jpg',
+  canonical,
+} = Astro.props;
+
+const siteUrl = import.meta.env.SITE_URL ?? 'https://your-domain.com';
+const canonicalUrl = canonical ?? new URL(Astro.url.pathname, siteUrl).href;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="keywords" content={keywords} />
+    <link rel="canonical" href={canonicalUrl} />
+
+    <!-- OG -->
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={`${siteUrl}${ogImage}`} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@400;500;600&family=Noto+Sans+KR:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <title>{title}</title>
+  </head>
+  <body>
+    <!-- Nav -->
+    <header class="nav-header">
+      <div class="nav-inner">
+        <a href="/" class="nav-logo">
+          <span class="logo-kr">맛있는</span>
+          <span class="logo-en">Korean</span>
+        </a>
+        <nav class="nav-links">
+          <a href="/recipes">Recipes</a>
+          <a href="/learn">Learn Korean</a>
+          <a href="/ingredients">Ingredients</a>
+          <a href="/quizzes">Quizzes</a>
+          <a href="/blog">Culture</a>
+        </nav>
+        <button class="nav-mobile-btn" id="mobileMenuBtn" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+      <nav class="nav-mobile" id="mobileMenu">
+        <a href="/recipes">Recipes</a>
+        <a href="/learn">Learn Korean</a>
+        <a href="/ingredients">Ingredients</a>
+        <a href="/quizzes">Quizzes</a>
+        <a href="/blog">Culture</a>
+      </nav>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <a href="/" class="nav-logo">
+            <span class="logo-kr">맛있는</span>
+            <span class="logo-en">Korean</span>
+          </a>
+          <p>Learn Korean naturally through the joy of cooking.</p>
+        </div>
+        <div class="footer-links">
+          <div>
+            <h4>Explore</h4>
+            <a href="/recipes">All Recipes</a>
+            <a href="/ingredients">Ingredients Guide</a>
+            <a href="/learn">Learn Korean</a>
+          </div>
+          <div>
+            <h4>Practice</h4>
+            <a href="/quizzes">Quizzes</a>
+            <a href="/blog">Culture & K-Drama</a>
+            <a href="/about">About</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>© {new Date().getFullYear()} MasisnunKorean. Made with 🥢 for Korean culture lovers.</p>
+      </div>
+    </footer>
+
+    <script>
+      // Mobile menu toggle
+      const btn = document.getElementById('mobileMenuBtn');
+      const menu = document.getElementById('mobileMenu');
+      btn?.addEventListener('click', () => menu?.classList.toggle('open'));
+    </script>
+  </body>
+</html>
+
+<style>
+  /* ── Nav ─────────────────────────────── */
+  .nav-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(245, 245, 240, 0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+  }
+  .nav-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-logo {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    text-decoration: none;
+  }
+  .logo-kr {
+    font-family: 'Noto Sans KR', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #C0392B;
+  }
+  .logo-en {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: #1A1A1A;
+  }
+  .nav-links {
+    display: flex;
+    gap: 2rem;
+  }
+  .nav-links a {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #444;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: #C0392B; }
+
+  .nav-mobile-btn {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+  }
+  .nav-mobile-btn span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: #1A1A1A;
+    transition: all 0.2s;
+  }
+  .nav-mobile {
+    display: none;
+    flex-direction: column;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid rgba(0,0,0,0.06);
+    background: #F5F5F0;
+  }
+  .nav-mobile a {
+    padding: 0.75rem 0;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    color: #333;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+  }
+  .nav-mobile.open { display: flex; }
+
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+    .nav-mobile-btn { display: flex; }
+  }
+
+  /* ── Footer ──────────────────────────── */
+  .site-footer {
+    background: #1A1A1A;
+    color: #aaa;
+    margin-top: 6rem;
+  }
+  .footer-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+  }
+  .footer-brand p {
+    margin-top: 0.75rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #888;
+  }
+  .footer-brand .logo-en { color: #fff; }
+  .footer-links {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+  .footer-links h4 {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #666;
+    margin-bottom: 0.75rem;
+  }
+  .footer-links a {
+    display: block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    color: #999;
+    text-decoration: none;
+    margin-bottom: 0.5rem;
+    transition: color 0.2s;
+  }
+  .footer-links a:hover { color: #fff; }
+  .footer-bottom {
+    border-top: 1px solid #2a2a2a;
+    padding: 1.25rem 1.5rem;
+    text-align: center;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    color: #555;
+  }
+  @media (max-width: 640px) {
+    .footer-inner { grid-template-columns: 1fr; gap: 2rem; }
+  }
+</style>

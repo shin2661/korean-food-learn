@@ -1,0 +1,89 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getDB } from '../../lib/db';
+import { blogPosts } from '../../../db/schema';
+import { eq, desc } from 'drizzle-orm';
+
+export const prerender = false;
+
+const db = getDB(Astro.locals);
+const posts = await db.select().from(blogPosts).where(eq(blogPosts.published, true)).orderBy(desc(blogPosts.createdAt));
+---
+
+<BaseLayout
+  title="Korean Food Culture & K-Drama | Blog"
+  description="Explore Korean food culture, K-drama food moments, dining etiquette, and the stories behind your favorite Korean dishes."
+>
+
+  <div class="page-hero">
+    <div class="container">
+      <span class="eyebrow">Culture & K-Drama</span>
+      <h1>The Story Behind Korean Food</h1>
+      <p>Etiquette, history, K-drama moments, and the culture behind what you're cooking.</p>
+    </div>
+  </div>
+
+  <div class="container page-body">
+    {posts.length > 0 ? (
+      <div class="posts-grid">
+        {posts.map((post, idx) => {
+          const tags: string[] = JSON.parse(post.tags ?? '[]');
+          return (
+            <a href={`/blog/${post.slug}`} class={`post-card ${idx === 0 ? 'featured' : ''}`}>
+              <div class="post-img">
+                {post.imageUrl
+                  ? <img src={post.imageUrl} alt={post.title} loading="lazy" />
+                  : <div class="post-img-placeholder">✍️</div>
+                }
+              </div>
+              <div class="post-body">
+                {tags.length > 0 && (
+                  <div class="post-tags">
+                    {tags.slice(0, 2).map(tag => <span class="tag">{tag}</span>)}
+                  </div>
+                )}
+                <h2 class="post-title">{post.title}</h2>
+                <p class="post-desc">{post.description}</p>
+                <span class="post-read">Read more →</span>
+              </div>
+            </a>
+          );
+        })}
+      </div>
+    ) : (
+      <div class="empty">
+        <p>Culture articles coming soon! Run <code>npm run generate</code> to create content.</p>
+      </div>
+    )}
+  </div>
+</BaseLayout>
+
+<style>
+.page-hero { background:linear-gradient(135deg,#C0392B,#7f1d1d);padding:5rem 0 3rem;margin-bottom:3rem; }
+.page-hero .eyebrow { display:block;font-family:'DM Sans',sans-serif;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#fca5a5;margin-bottom:0.5rem; }
+.page-hero h1 { font-family:'Playfair Display',serif;font-size:3rem;color:#fff;margin:0 0 0.75rem; }
+.page-hero p { font-family:'DM Sans',sans-serif;color:rgba(255,255,255,0.75);font-size:1rem;margin:0; }
+.container { max-width:1200px;margin:0 auto;padding:0 1.5rem; }
+.page-body { padding-bottom:5rem; }
+
+.posts-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1.5rem; }
+.post-card { background:#fff;border:1px solid #e8e4de;border-radius:20px;overflow:hidden;text-decoration:none;display:block;transition:box-shadow 0.2s,transform 0.2s; }
+.post-card:hover { box-shadow:0 8px 32px rgba(0,0,0,0.1);transform:translateY(-4px); }
+.post-card.featured { grid-column:1/-1; display:grid;grid-template-columns:1fr 1fr; }
+.post-img { aspect-ratio:16/9;background:linear-gradient(135deg,#fee2e2,#fecaca);overflow:hidden;display:flex;align-items:center;justify-content:center; }
+.post-img img { width:100%;height:100%;object-fit:cover;transition:transform 0.4s; }
+.post-card:hover .post-img img { transform:scale(1.04); }
+.post-img-placeholder { font-size:4rem; }
+.post-card.featured .post-img { aspect-ratio:auto;min-height:300px; }
+.post-body { padding:1.5rem; }
+.post-tags { display:flex;gap:0.4rem;margin-bottom:0.75rem;flex-wrap:wrap; }
+.tag { font-family:'DM Sans',sans-serif;font-size:0.7rem;font-weight:600;padding:0.2rem 0.6rem;border-radius:999px;background:#fee2e2;color:#C0392B;text-transform:capitalize; }
+.post-title { font-family:'Playfair Display',serif;font-size:1.3rem;color:#1A1A1A;margin:0 0 0.6rem;line-height:1.3; }
+.post-card.featured .post-title { font-size:1.75rem; }
+.post-desc { font-family:'DM Sans',sans-serif;font-size:0.9rem;color:#777;line-height:1.6;margin:0 0 1rem; }
+.post-read { font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;color:#C0392B; }
+.empty { text-align:center;padding:5rem 2rem;font-family:'DM Sans',sans-serif;color:#999; }
+.empty code { background:#f0ebe4;padding:0.2rem 0.5rem;border-radius:4px;color:#C0392B; }
+
+@media (max-width:768px) { .post-card.featured { grid-template-columns:1fr; } }
+</style>

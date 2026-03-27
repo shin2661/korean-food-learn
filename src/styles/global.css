@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #C0392B;
+    --color-bg: #F5F5F0;
+    --color-text: #1A1A1A;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-korean-white text-korean-black font-sans antialiased;
+  }
+
+  /* 한국어 텍스트 */
+  .kr {
+    @apply font-korean;
+  }
+}
+
+@layer components {
+  /* 레시피 카드 공통 스타일 */
+  .recipe-card {
+    @apply bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden;
+  }
+
+  /* 난이도 뱃지 */
+  .badge-easy    { @apply bg-green-100 text-green-700 text-xs font-medium px-2 py-0.5 rounded-full; }
+  .badge-medium  { @apply bg-yellow-100 text-yellow-700 text-xs font-medium px-2 py-0.5 rounded-full; }
+  .badge-hard    { @apply bg-red-100 text-red-700 text-xs font-medium px-2 py-0.5 rounded-full; }
+
+  /* 한국어 표현 하이라이트 */
+  .korean-highlight {
+    @apply bg-korean-beige border-l-4 border-korean-red px-4 py-3 rounded-r-lg;
+  }
+
+  /* 퀴즈 옵션 버튼 */
+  .quiz-option {
+    @apply w-full text-left px-4 py-3 rounded-xl border-2 border-gray-200
+           hover:border-korean-red hover:bg-red-50 transition-colors cursor-pointer;
+  }
+  .quiz-option.correct { @apply border-green-500 bg-green-50; }
+  .quiz-option.wrong   { @apply border-red-500 bg-red-50; }
+}

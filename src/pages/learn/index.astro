@@ -1,0 +1,129 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PhraseCard from '../../components/PhraseCard.astro';
+import { getDB } from '../../lib/db';
+import { koreanPhrases } from '../../../db/schema';
+import { eq, isNull } from 'drizzle-orm';
+
+export const prerender = false;
+
+const db = getDB(Astro.locals);
+
+const levelFilter = Astro.url.searchParams.get('level') ?? '';
+const contextFilter = Astro.url.searchParams.get('context') ?? '';
+
+const allPhrases = await db.select().from(koreanPhrases).orderBy(koreanPhrases.level);
+
+const filtered = allPhrases.filter(p => {
+  if (levelFilter   && p.level       !== levelFilter)   return false;
+  if (contextFilter && p.contextType !== contextFilter) return false;
+  return true;
+});
+
+const levels   = ['beginner', 'intermediate', 'advanced'];
+const contexts = [...new Set(allPhrases.map(p => p.contextType).filter(Boolean))];
+---
+
+<BaseLayout
+  title="Learn Korean Through Food | Korean Phrases & Vocabulary"
+  description="Learn Korean words and phrases related to cooking, food, and restaurants. Real Korean expressions with grammar explanations and example sentences."
+>
+
+  <div class="page-hero">
+    <div class="container">
+      <span class="eyebrow">Learn Korean</span>
+      <h1>Korean Through Food</h1>
+      <p>Real expressions Koreans use in the kitchen, at the table, and in restaurants.</p>
+    </div>
+  </div>
+
+  <div class="container page-body">
+
+    <!-- Level tabs + context filter -->
+    <div class="filter-bar">
+      <div class="level-tabs">
+        <a href="/learn" class={`tab ${!levelFilter ? 'active' : ''}`}>All</a>
+        {levels.map(lv => (
+          <a
+            href={`/learn?level=${lv}${contextFilter ? `&context=${contextFilter}` : ''}`}
+            class={`tab tab-${lv} ${levelFilter === lv ? 'active' : ''}`}
+          >{lv}</a>
+        ))}
+      </div>
+      {contexts.length > 0 && (
+        <div class="context-filter">
+          <select onchange="location.href=this.value">
+            <option value={`/learn${levelFilter ? `?level=${levelFilter}` : ''}`} selected={!contextFilter}>
+              All contexts
+            </option>
+            {contexts.map(ctx => (
+              <option
+                value={`/learn?context=${ctx}${levelFilter ? `&level=${levelFilter}` : ''}`}
+                selected={contextFilter === ctx}
+              >{ctx}</option>
+            ))}
+          </select>
+        </div>
+      )}
+    </div>
+
+    <p class="result-count">{filtered.length} expressions</p>
+
+    {filtered.length > 0 ? (
+      <div class="phrase-grid">
+        {filtered.map(phrase => (
+          <PhraseCard
+            phraseKr={phrase.phraseKr}
+            phraseEn={phrase.phraseEn}
+            romanization={phrase.romanization}
+            partOfSpeech={phrase.partOfSpeech}
+            level={phrase.level}
+            grammarPoint={phrase.grammarPoint}
+            grammarExplanation={phrase.grammarExplanation}
+            exampleKr={phrase.exampleKr}
+            exampleRomanization={phrase.exampleRomanization}
+            exampleEn={phrase.exampleEn}
+            usageNote={phrase.usageNote}
+          />
+        ))}
+      </div>
+    ) : (
+      <div class="empty">
+        <p>No phrases yet. Generate some recipes to populate the phrase library!</p>
+      </div>
+    )}
+
+  </div>
+</BaseLayout>
+
+<style>
+.page-hero { background: linear-gradient(135deg, #1A1A1A, #2d1a18); padding: 5rem 0 3rem; margin-bottom: 3rem; }
+.page-hero .eyebrow { display:block;font-family:'DM Sans',sans-serif;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#C0392B;margin-bottom:0.5rem; }
+.page-hero h1 { font-family:'Playfair Display',serif;font-size:3rem;color:#fff;margin:0 0 0.75rem; }
+.page-hero p { font-family:'DM Sans',sans-serif;color:#aaa;font-size:1rem;margin:0; }
+.container { max-width:1200px;margin:0 auto;padding:0 1.5rem; }
+.page-body { padding-bottom:5rem; }
+
+.filter-bar { display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;margin-bottom:1.5rem; }
+.level-tabs { display:flex;gap:0.4rem; }
+.tab {
+  padding:0.45rem 1rem;
+  border-radius:999px;
+  font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:600;
+  text-decoration:none;color:#666;background:#F5F5F0;
+  transition:all 0.15s;text-transform:capitalize;
+}
+.tab:hover { background:#e8e4de; }
+.tab.active { background:#1A1A1A;color:#fff; }
+.tab-beginner.active { background:#1e40af; }
+.tab-intermediate.active { background:#92400e; }
+.tab-advanced.active { background:#9d174d; }
+
+.context-filter select { padding:0.45rem 0.85rem;border:2px solid #e8e4de;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:0.88rem;color:#333;background:#fff;outline:none;cursor:pointer; }
+.context-filter select:focus { border-color:#C0392B; }
+
+.result-count { font-family:'DM Sans',sans-serif;font-size:0.9rem;color:#aaa;margin-bottom:1.5rem; }
+
+.phrase-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem; }
+.empty { text-align:center;padding:5rem 2rem;font-family:'DM Sans',sans-serif;color:#999; }
+</style>

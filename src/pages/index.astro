@@ -1,0 +1,538 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import DifficultyBadge from '../components/DifficultyBadge.astro';
+import { getDB } from '../lib/db';
+import { recipes, categories } from '../../db/schema';
+import { eq, desc } from 'drizzle-orm';
+
+export const prerender = false;
+
+const db = getDB(Astro.locals);
+
+const featuredRecipes = await db
+  .select()
+  .from(recipes)
+  .where(eq(recipes.published, true))
+  .orderBy(desc(recipes.createdAt))
+  .limit(8);
+
+const allCategories = await db.select().from(categories).limit(12);
+---
+
+<BaseLayout
+  title="Cook Korean Food & Learn Korean Naturally | MasisnunKorean"
+  description="Learn Korean naturally through authentic recipes. Cook Korean food and pick up real phrases, vocabulary, and grammar along the way."
+>
+
+  <!-- ── Hero ──────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="hero-bg">
+      <div class="hero-grain"></div>
+      <div class="hero-blob blob-1"></div>
+      <div class="hero-blob blob-2"></div>
+    </div>
+    <div class="hero-inner">
+      <div class="hero-badge">🇰🇷 Korean Food × Language</div>
+      <h1 class="hero-title">
+        Cook Korean Food<br/>
+        <em>& Learn Korean</em><br/>
+        Naturally
+      </h1>
+      <p class="hero-sub">
+        Every recipe teaches you real Korean expressions, vocabulary,
+        and grammar — the way Koreans actually speak.
+      </p>
+      <div class="hero-cta">
+        <a href="/recipes" class="btn-primary">Start Cooking 🍜</a>
+        <a href="/learn" class="btn-secondary">Learn Korean →</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-item"><strong>{featuredRecipes.length}+</strong><span>Recipes</span></div>
+        <div class="stat-divider"></div>
+        <div class="stat-item"><strong>500+</strong><span>Korean Phrases</span></div>
+        <div class="stat-divider"></div>
+        <div class="stat-item"><strong>Free</strong><span>Forever</span></div>
+      </div>
+    </div>
+    <div class="hero-scroll">↓ scroll</div>
+  </section>
+
+  <!-- ── Why section ───────────────────────────────────────── -->
+  <section class="why-section">
+    <div class="container">
+      <div class="why-grid">
+        <div class="why-text">
+          <span class="section-eyebrow">Why Learn Through Food?</span>
+          <h2 class="why-title">Context makes Korean stick</h2>
+          <p>
+            Studying vocabulary lists is boring. But when you learn
+            <span class="kr-inline">볶다</span> (to stir-fry) while actually making
+            <span class="kr-inline">제육볶음</span>, you remember it forever.
+          </p>
+          <p>
+            Every recipe page teaches you the Korean words and grammar
+            you'd actually use in a Korean kitchen — or on your next trip to Korea.
+          </p>
+          <a href="/recipes" class="why-link">Browse all recipes →</a>
+        </div>
+        <div class="why-cards">
+          {[
+            { icon: '🥘', title: 'Cook the dish', desc: 'Follow authentic recipes step by step' },
+            { icon: '🇰🇷', title: 'Learn the words', desc: 'Every ingredient and action in Korean' },
+            { icon: '🧠', title: 'Test yourself', desc: 'Built-in quizzes after every recipe' },
+            { icon: '📺', title: 'K-Drama context', desc: 'See how food appears in popular shows' },
+          ].map(card => (
+            <div class="why-card">
+              <span class="why-icon">{card.icon}</span>
+              <h3>{card.title}</h3>
+              <p>{card.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Featured Recipes ──────────────────────────────────── -->
+  <section class="recipes-section">
+    <div class="container">
+      <div class="section-header">
+        <div>
+          <span class="section-eyebrow">Popular Recipes</span>
+          <h2 class="section-title-lg">Start with these</h2>
+        </div>
+        <a href="/recipes" class="view-all">View all →</a>
+      </div>
+      <div class="recipe-grid">
+        {featuredRecipes.length > 0 ? featuredRecipes.map(recipe => (
+          <a href={`/recipes/${recipe.slug}`} class="recipe-card">
+            <div class="card-img">
+              {recipe.imageUrl
+                ? <img src={recipe.imageUrl} alt={recipe.titleEn} loading="lazy" />
+                : <div class="card-img-placeholder">🍲</div>
+              }
+              <div class="card-difficulty">
+                <DifficultyBadge difficulty={recipe.difficulty as 'easy'|'medium'|'hard'} />
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="card-kr">{recipe.titleKr}</div>
+              <h3 class="card-title">{recipe.titleEn}</h3>
+              <p class="card-desc">{recipe.description?.slice(0, 90)}...</p>
+              <div class="card-meta">
+                <span>⏱ {recipe.cookingTime}min</span>
+                <span>🍽 {recipe.servings} servings</span>
+              </div>
+            </div>
+          </a>
+        )) : (
+          <div class="empty-state">
+            <p>Recipes coming soon! Run <code>npm run generate</code> to add your first recipe.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Categories ────────────────────────────────────────── -->
+  {allCategories.length > 0 && (
+    <section class="categories-section">
+      <div class="container">
+        <span class="section-eyebrow">Browse by Category</span>
+        <h2 class="section-title-lg">Find what you're craving</h2>
+        <div class="cat-grid">
+          {allCategories.map(cat => (
+            <a href={`/recipes?category=${cat.slug}`} class="cat-chip">
+              <span class="cat-kr">{cat.nameKr}</span>
+              <span class="cat-en">{cat.nameEn}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  )}
+
+  <!-- ── CTA Banner ─────────────────────────────────────────── -->
+  <section class="cta-banner">
+    <div class="container">
+      <div class="cta-inner">
+        <div>
+          <h2>Ready to start cooking & learning?</h2>
+          <p>Pick a recipe and learn your first Korean cooking phrase today.</p>
+        </div>
+        <a href="/recipes" class="btn-primary">Browse Recipes 🥢</a>
+      </div>
+    </div>
+  </section>
+
+</BaseLayout>
+
+<style>
+/* ── Hero ──────────────────────────────────────────────────── */
+.hero {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+.hero-bg {
+  position: absolute;
+  inset: 0;
+  background: #F5F5F0;
+}
+.hero-grain {
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.4;
+}
+.hero-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.35;
+}
+.blob-1 {
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, #fde68a, #fca5a5);
+  top: -200px; right: -100px;
+}
+.blob-2 {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, #bbf7d0, #a5f3fc);
+  bottom: -100px; left: -100px;
+}
+.hero-inner {
+  position: relative;
+  z-index: 2;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 6rem 1.5rem 4rem;
+}
+.hero-badge {
+  display: inline-block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: #fff;
+  border: 1px solid #e8e4de;
+  border-radius: 999px;
+  padding: 0.35rem 1rem;
+  color: #888;
+  margin-bottom: 1.5rem;
+}
+.hero-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(3rem, 7vw, 5.5rem);
+  line-height: 1.1;
+  color: #1A1A1A;
+  margin: 0 0 1.5rem;
+  max-width: 700px;
+}
+.hero-title em {
+  font-style: italic;
+  color: #C0392B;
+}
+.hero-sub {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1.15rem;
+  color: #666;
+  line-height: 1.7;
+  max-width: 520px;
+  margin: 0 0 2rem;
+}
+.hero-cta {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 3rem;
+}
+.btn-primary {
+  display: inline-block;
+  padding: 0.875rem 2rem;
+  background: #C0392B;
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  font-size: 1rem;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.2s;
+  box-shadow: 0 4px 14px rgba(192,57,43,0.35);
+}
+.btn-primary:hover { background: #a93226; transform: translateY(-2px); }
+.btn-secondary {
+  display: inline-block;
+  padding: 0.875rem 2rem;
+  background: transparent;
+  color: #1A1A1A;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  font-size: 1rem;
+  border-radius: 999px;
+  text-decoration: none;
+  border: 2px solid #1A1A1A;
+  transition: all 0.2s;
+}
+.btn-secondary:hover { background: #1A1A1A; color: #fff; }
+
+.hero-stats {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.stat-item strong {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  color: #1A1A1A;
+}
+.stat-item span {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  color: #999;
+}
+.stat-divider {
+  width: 1px;
+  height: 36px;
+  background: #d4cfc8;
+}
+.hero-scroll {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #bbb;
+  animation: bounce 2s infinite;
+}
+@keyframes bounce {
+  0%,100% { transform: translateX(-50%) translateY(0); }
+  50%      { transform: translateX(-50%) translateY(6px); }
+}
+
+/* ── Shared ───────────────────────────────────────────────── */
+.container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
+.section-eyebrow {
+  display: block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #C0392B;
+  margin-bottom: 0.5rem;
+}
+.section-title-lg {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.25rem;
+  color: #1A1A1A;
+  margin: 0 0 2rem;
+}
+.section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+}
+.section-header .section-title-lg { margin: 0; }
+.view-all {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #C0392B;
+  text-decoration: none;
+  transition: gap 0.15s;
+}
+.view-all:hover { text-decoration: underline; }
+
+/* ── Why ──────────────────────────────────────────────────── */
+.why-section { padding: 6rem 0; background: #fff; }
+.why-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5rem;
+  align-items: center;
+}
+.why-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.5rem;
+  color: #1A1A1A;
+  margin: 0 0 1.25rem;
+  line-height: 1.2;
+}
+.why-text p {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1.02rem;
+  color: #555;
+  line-height: 1.8;
+  margin: 0 0 1rem;
+}
+.kr-inline {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-weight: 700;
+  color: #C0392B;
+}
+.why-link {
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 600;
+  color: #C0392B;
+  text-decoration: none;
+}
+.why-link:hover { text-decoration: underline; }
+.why-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+.why-card {
+  background: #F5F5F0;
+  border-radius: 16px;
+  padding: 1.25rem;
+  transition: transform 0.2s;
+}
+.why-card:hover { transform: translateY(-4px); }
+.why-icon { font-size: 1.75rem; display: block; margin-bottom: 0.6rem; }
+.why-card h3 {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1A1A1A;
+  margin: 0 0 0.35rem;
+}
+.why-card p {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  color: #777;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Recipes ──────────────────────────────────────────────── */
+.recipes-section { padding: 6rem 0; background: #F5F5F0; }
+.recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+.recipe-card {
+  background: #fff;
+  border-radius: 20px;
+  overflow: hidden;
+  text-decoration: none;
+  border: 1px solid #e8e4de;
+  transition: box-shadow 0.2s, transform 0.2s;
+  display: block;
+}
+.recipe-card:hover { box-shadow: 0 8px 32px rgba(0,0,0,0.1); transform: translateY(-4px); }
+.card-img { position: relative; aspect-ratio: 4/3; overflow: hidden; background: #F0E6D3; }
+.card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; }
+.recipe-card:hover .card-img img { transform: scale(1.05); }
+.card-img-placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 4rem;
+  background: linear-gradient(135deg, #F0E6D3, #e8d5c0);
+}
+.card-difficulty { position: absolute; top: 0.75rem; left: 0.75rem; }
+.card-body { padding: 1.1rem 1.25rem; }
+.card-kr {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #C0392B;
+  margin-bottom: 0.2rem;
+}
+.card-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.2rem;
+  color: #1A1A1A;
+  margin: 0 0 0.5rem;
+}
+.card-desc {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.85rem;
+  color: #888;
+  line-height: 1.5;
+  margin: 0 0 0.75rem;
+}
+.card-meta {
+  display: flex;
+  gap: 1rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  color: #aaa;
+}
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 4rem 2rem;
+  background: #fff;
+  border-radius: 20px;
+  border: 2px dashed #e0dbd4;
+  font-family: 'DM Sans', sans-serif;
+  color: #999;
+}
+.empty-state code { background: #f0ebe4; padding: 0.2rem 0.5rem; border-radius: 4px; color: #C0392B; }
+
+/* ── Categories ───────────────────────────────────────────── */
+.categories-section { padding: 5rem 0; background: #fff; }
+.cat-grid { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.cat-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.7rem 1.25rem;
+  background: #F5F5F0;
+  border-radius: 999px;
+  text-decoration: none;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+.cat-chip:hover { border-color: #C0392B; background: #fff5f5; }
+.cat-kr { font-family: 'Noto Sans KR', sans-serif; font-size: 0.85rem; font-weight: 700; color: #C0392B; }
+.cat-en { font-family: 'DM Sans', sans-serif; font-size: 0.75rem; color: #888; }
+
+/* ── CTA ──────────────────────────────────────────────────── */
+.cta-banner { padding: 5rem 0; }
+.cta-inner {
+  background: linear-gradient(135deg, #1A1A1A 0%, #2d1a18 100%);
+  border-radius: 24px;
+  padding: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+.cta-inner h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.75rem;
+  color: #fff;
+  margin: 0 0 0.5rem;
+}
+.cta-inner p {
+  font-family: 'DM Sans', sans-serif;
+  color: #aaa;
+  margin: 0;
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .why-grid { grid-template-columns: 1fr; gap: 3rem; }
+}
+@media (max-width: 640px) {
+  .hero-stats { gap: 1rem; }
+  .cta-inner { flex-direction: column; text-align: center; }
+}
+</style>

@@ -1,0 +1,39 @@
+{
+  "name": "korean-food-learn",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "deploy": "astro build && wrangler pages deploy dist",
+
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 execute korean-food-db --local --file=./db/migrations/0000_initial.sql",
+    "db:migrate:prod": "wrangler d1 execute korean-food-db --remote --file=./db/migrations/0000_initial.sql",
+
+    "generate": "tsx scripts/generate.ts",
+
+    "db:seed": "tsx scripts/seed.ts",
+    "db:seed:prod": "tsx scripts/seed-prod.ts --prod"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@google/generative-ai": "^0.24.0",
+    "better-sqlite3": "^9.4.0",
+    "@astrojs/cloudflare": "^12.0.0",
+    "@astrojs/tailwind": "^5.1.0",
+    "astro": "^5.0.0",
+    "drizzle-orm": "^0.40.0",
+    "openai": "^4.0.0",
+    "tailwindcss": "^3.4.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "@types/better-sqlite3": "^7.6.8",
+    "dotenv": "^16.0.0",
+    "drizzle-kit": "^0.30.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.0.0",
+    "wrangler": "^3.0.0"
+  }
+}

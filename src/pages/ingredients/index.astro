@@ -1,0 +1,133 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getDB } from '../../lib/db';
+import { ingredients } from '../../../db/schema';
+
+export const prerender = false;
+
+const db = getDB(Astro.locals);
+const q = Astro.url.searchParams.get('q') ?? '';
+
+const allIngredients = await db.select().from(ingredients).orderBy(ingredients.nameEn);
+const filtered = q
+  ? allIngredients.filter(i =>
+      i.nameEn.toLowerCase().includes(q.toLowerCase()) ||
+      i.nameKr.includes(q) ||
+      i.romanization.toLowerCase().includes(q.toLowerCase())
+    )
+  : allIngredients;
+---
+
+<BaseLayout
+  title="Korean Ingredients Guide | Names, Substitutes & Where to Buy"
+  description="Complete guide to Korean cooking ingredients — Korean names, English translations, romanization, substitutes, and where to find them."
+>
+
+  <div class="page-hero">
+    <div class="container">
+      <span class="eyebrow">Ingredients Guide</span>
+      <h1>Korean Ingredients A–Z</h1>
+      <p>Find any Korean ingredient — name in Korean, pronunciation, and where to buy it.</p>
+    </div>
+  </div>
+
+  <div class="container page-body">
+
+    <!-- Search -->
+    <form class="search-form" method="get">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          name="q"
+          value={q}
+          placeholder="Search ingredients... (e.g. gochujang, 된장, doenjang)"
+          class="search-input"
+        />
+        {q && <a href="/ingredients" class="search-clear">✕</a>}
+      </div>
+    </form>
+
+    <p class="result-count">{filtered.length} ingredient{filtered.length !== 1 ? 's' : ''}</p>
+
+    {filtered.length > 0 ? (
+      <div class="ingredients-grid">
+        {filtered.map(ing => (
+          <a href={`/ingredients/${ing.slug}`} class="ing-card">
+            <div class="ing-img">
+              {ing.imageUrl
+                ? <img src={ing.imageUrl} alt={ing.nameEn} loading="lazy" />
+                : <span class="ing-emoji">🌿</span>
+              }
+            </div>
+            <div class="ing-body">
+              <div class="ing-names">
+                <span class="ing-kr">{ing.nameKr}</span>
+                <span class="ing-rom">{ing.romanization}</span>
+              </div>
+              <h2 class="ing-en">{ing.nameEn}</h2>
+              {ing.description && <p class="ing-desc">{ing.description.slice(0, 80)}...</p>}
+              {ing.substitute && (
+                <div class="ing-sub">
+                  <span class="sub-label">Sub:</span> {ing.substitute.slice(0, 50)}
+                </div>
+              )}
+            </div>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <div class="empty">
+        {q
+          ? <p>No ingredients found for "<strong>{q}</strong>". <a href="/ingredients">Clear search</a></p>
+          : <p>No ingredients yet. Generate some recipes to populate this guide!</p>
+        }
+      </div>
+    )}
+
+  </div>
+</BaseLayout>
+
+<style>
+.page-hero { background:linear-gradient(135deg,#2D6A4F,#1a4a35);padding:5rem 0 3rem;margin-bottom:3rem; }
+.page-hero .eyebrow { display:block;font-family:'DM Sans',sans-serif;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#6ee7b7;margin-bottom:0.5rem; }
+.page-hero h1 { font-family:'Playfair Display',serif;font-size:3rem;color:#fff;margin:0 0 0.75rem; }
+.page-hero p { font-family:'DM Sans',sans-serif;color:rgba(255,255,255,0.7);font-size:1rem;margin:0; }
+.container { max-width:1200px;margin:0 auto;padding:0 1.5rem; }
+.page-body { padding-bottom:5rem; }
+
+.search-form { margin-bottom:1.5rem; }
+.search-wrap { position:relative;display:flex;align-items:center; }
+.search-icon { position:absolute;left:1rem;font-size:1rem;color:#aaa; }
+.search-input {
+  width:100%;padding:0.85rem 1rem 0.85rem 2.75rem;
+  border:2px solid #e8e4de;border-radius:12px;
+  font-family:'DM Sans',sans-serif;font-size:1rem;color:#333;background:#fff;outline:none;
+  transition:border-color 0.15s;
+}
+.search-input:focus { border-color:#2D6A4F; }
+.search-clear { position:absolute;right:1rem;color:#aaa;text-decoration:none;font-size:0.9rem; }
+.search-clear:hover { color:#C0392B; }
+
+.result-count { font-family:'DM Sans',sans-serif;font-size:0.9rem;color:#aaa;margin-bottom:1.5rem; }
+
+.ingredients-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1.25rem; }
+.ing-card {
+  background:#fff;border:1px solid #e8e4de;border-radius:16px;overflow:hidden;
+  text-decoration:none;transition:box-shadow 0.2s,transform 0.2s;display:block;
+}
+.ing-card:hover { box-shadow:0 6px 24px rgba(0,0,0,0.08);transform:translateY(-3px); }
+.ing-img { height:140px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);display:flex;align-items:center;justify-content:center;overflow:hidden; }
+.ing-img img { width:100%;height:100%;object-fit:cover; }
+.ing-emoji { font-size:3.5rem; }
+.ing-body { padding:1rem; }
+.ing-names { display:flex;align-items:baseline;gap:0.4rem;margin-bottom:0.2rem; }
+.ing-kr { font-family:'Noto Sans KR',sans-serif;font-size:1rem;font-weight:700;color:#2D6A4F; }
+.ing-rom { font-family:'DM Sans',sans-serif;font-size:0.75rem;color:#aaa;font-style:italic; }
+.ing-en { font-family:'Playfair Display',serif;font-size:1.05rem;color:#1A1A1A;margin:0 0 0.4rem; }
+.ing-desc { font-family:'DM Sans',sans-serif;font-size:0.82rem;color:#888;line-height:1.5;margin:0 0 0.5rem; }
+.ing-sub { font-family:'DM Sans',sans-serif;font-size:0.78rem;color:#999;border-top:1px dashed #e8e4de;padding-top:0.4rem; }
+.sub-label { font-weight:700;color:#D4A017; }
+.empty { text-align:center;padding:5rem 2rem;font-family:'DM Sans',sans-serif;color:#999; }
+.empty a { color:#2D6A4F; }
+</style>

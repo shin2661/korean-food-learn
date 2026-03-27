@@ -1,0 +1,110 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getDB } from '../../lib/db';
+import { blogPosts } from '../../../db/schema';
+import { eq } from 'drizzle-orm';
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/404');
+
+const db = getDB(Astro.locals);
+const [post] = await db.select().from(blogPosts).where(eq(blogPosts.slug, slug)).limit(1);
+if (!post || !post.published) return Astro.redirect('/404');
+
+const tags: string[] = JSON.parse(post.tags ?? '[]');
+
+// Simple markdown → HTML (basic, for production use a proper parser)
+// Install @astrojs/mdx or marked for real markdown support
+const contentHtml = post.content
+  .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+  .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+  .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+  .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  .replace(/\*(.+?)\*/g, '<em>$1</em>')
+  .replace(/\n\n/g, '</p><p>')
+  .replace(/^/, '<p>')
+  .replace(/$/, '</p>');
+---
+
+<BaseLayout
+  title={`${post.title} | Korean Food Culture`}
+  description={post.description}
+  ogImage={post.imageUrl ?? undefined}
+>
+
+  <article class="article-wrap">
+    <!-- Hero -->
+    <div class="article-hero">
+      {post.imageUrl
+        ? <img src={post.imageUrl} alt={post.title} class="hero-img" />
+        : <div class="hero-placeholder">✍️</div>
+      }
+      <div class="hero-overlay"></div>
+      <div class="hero-content">
+        <div class="breadcrumb">
+          <a href="/">Home</a> › <a href="/blog">Culture</a> › <span>{post.title}</span>
+        </div>
+        {tags.length > 0 && (
+          <div class="post-tags">
+            {tags.map(tag => <span class="tag">{tag}</span>)}
+          </div>
+        )}
+        <h1>{post.title}</h1>
+        <p class="hero-desc">{post.description}</p>
+      </div>
+    </div>
+
+    <!-- AdSense top -->
+    <div class="container">
+      <div class="adsense-slot" aria-hidden="true"></div>
+    </div>
+
+    <!-- Content -->
+    <div class="container article-body">
+      <div class="article-content prose" set:html={contentHtml} />
+
+      <!-- AdSense bottom -->
+      <div class="adsense-slot" aria-hidden="true"></div>
+
+      <!-- Navigation -->
+      <div class="article-nav">
+        <a href="/blog" class="btn-back">← Back to Culture</a>
+        <a href="/recipes" class="btn-recipes">Browse Recipes 🍜</a>
+      </div>
+    </div>
+  </article>
+
+</BaseLayout>
+
+<style>
+.article-hero { position:relative;min-height:400px;display:flex;align-items:flex-end;overflow:hidden; }
+.hero-img { position:absolute;inset:0;width:100%;height:100%;object-fit:cover; }
+.hero-placeholder { position:absolute;inset:0;background:linear-gradient(135deg,#fee2e2,#fecaca);display:flex;align-items:center;justify-content:center;font-size:8rem; }
+.hero-overlay { position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,0.85) 0%,rgba(0,0,0,0.1) 60%); }
+.hero-content { position:relative;z-index:2;max-width:1200px;margin:0 auto;padding:2.5rem 1.5rem;width:100%; }
+.breadcrumb { font-family:'DM Sans',sans-serif;font-size:0.8rem;color:rgba(255,255,255,0.65);margin-bottom:1rem; }
+.breadcrumb a { color:rgba(255,255,255,0.65);text-decoration:none; }
+.breadcrumb a:hover { color:#fff; }
+.post-tags { display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.75rem; }
+.tag { font-family:'DM Sans',sans-serif;font-size:0.72rem;font-weight:600;padding:0.2rem 0.65rem;border-radius:999px;background:rgba(192,57,43,0.8);color:#fff; }
+.hero-content h1 { font-family:'Playfair Display',serif;font-size:2.75rem;color:#fff;margin:0 0 0.75rem;max-width:700px;line-height:1.15; }
+.hero-desc { font-family:'DM Sans',sans-serif;color:rgba(255,255,255,0.8);font-size:1.05rem;max-width:600px;margin:0;line-height:1.6; }
+
+.container { max-width:800px;margin:0 auto;padding:0 1.5rem; }
+.adsense-slot { background:#f8f7f5;border:1px dashed #d0c8bc;border-radius:12px;min-height:90px;margin:2rem 0; }
+
+.article-body { padding-bottom:5rem; }
+.article-content { font-family:'DM Sans',sans-serif;font-size:1.05rem;line-height:1.85;color:#333; }
+.article-content :global(h2) { font-family:'Playfair Display',serif;font-size:1.6rem;color:#1A1A1A;margin:2rem 0 1rem;padding-bottom:0.5rem;border-bottom:2px solid #F0E6D3; }
+.article-content :global(h3) { font-family:'Playfair Display',serif;font-size:1.25rem;color:#1A1A1A;margin:1.75rem 0 0.75rem; }
+.article-content :global(p) { margin:0 0 1.25rem; }
+.article-content :global(strong) { font-weight:700;color:#1A1A1A; }
+
+.article-nav { display:flex;justify-content:space-between;align-items:center;padding-top:2rem;border-top:1px solid #e8e4de;flex-wrap:wrap;gap:1rem; }
+.btn-back { font-family:'DM Sans',sans-serif;font-size:0.9rem;color:#888;text-decoration:none;transition:color 0.15s; }
+.btn-back:hover { color:#C0392B; }
+.btn-recipes { display:inline-block;padding:0.65rem 1.5rem;background:#C0392B;color:#fff;font-family:'DM Sans',sans-serif;font-weight:600;font-size:0.9rem;border-radius:999px;text-decoration:none;transition:background 0.15s; }
+.btn-recipes:hover { background:#a93226; }
+</style>

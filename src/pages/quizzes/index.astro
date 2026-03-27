@@ -1,0 +1,101 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import QuizSection from '../../components/QuizSection.astro';
+import { getDB } from '../../lib/db';
+import { quizzes, recipes } from '../../../db/schema';
+import { eq } from 'drizzle-orm';
+
+export const prerender = false;
+
+const db = getDB(Astro.locals);
+const recipeSlug = Astro.url.searchParams.get('recipe') ?? '';
+
+let filteredQuizzes: typeof quizzes.$inferSelect[] = [];
+let selectedRecipe: typeof recipes.$inferSelect | null = null;
+
+if (recipeSlug) {
+  const [rec] = await db.select().from(recipes).where(eq(recipes.slug, recipeSlug)).limit(1);
+  if (rec) {
+    selectedRecipe = rec;
+    filteredQuizzes = await db.select().from(quizzes).where(eq(quizzes.recipeId, rec.id));
+  }
+} else {
+  // Show random selection of quizzes
+  filteredQuizzes = await db.select().from(quizzes).limit(10);
+}
+
+const allRecipes = await db.select({ id: recipes.id, slug: recipes.slug, titleEn: recipes.titleEn, titleKr: recipes.titleKr }).from(recipes).where(eq(recipes.published, true));
+---
+
+<BaseLayout
+  title="Korean Food & Language Quizzes | Practice Korean"
+  description="Test your Korean vocabulary and food knowledge with interactive quizzes. Practice Korean phrases, translations, and fill-in-the-blank exercises."
+>
+
+  <div class="page-hero">
+    <div class="container">
+      <span class="eyebrow">Quizzes & Practice</span>
+      <h1>Test Your Korean</h1>
+      <p>Practice the Korean words and phrases you've learned from our recipes.</p>
+    </div>
+  </div>
+
+  <div class="container page-body">
+
+    <!-- Recipe selector -->
+    {allRecipes.length > 0 && (
+      <div class="recipe-selector">
+        <label>Choose a recipe quiz:</label>
+        <select onchange="location.href=this.value">
+          <option value="/quizzes" selected={!recipeSlug}>🎲 Random mix</option>
+          {allRecipes.map(r => (
+            <option value={`/quizzes?recipe=${r.slug}`} selected={recipeSlug === r.slug}>
+              {r.titleKr} — {r.titleEn}
+            </option>
+          ))}
+        </select>
+      </div>
+    )}
+
+    {selectedRecipe && (
+      <div class="quiz-context">
+        <h2>Quizzes for: <span class="recipe-name">{selectedRecipe.titleKr} {selectedRecipe.titleEn}</span></h2>
+        <a href={`/recipes/${selectedRecipe.slug}`} class="back-link">← Back to recipe</a>
+      </div>
+    )}
+
+    {filteredQuizzes.length > 0
+      ? <QuizSection quizzes={filteredQuizzes} />
+      : (
+        <div class="empty">
+          <p>No quizzes yet. Generate some recipes to populate quizzes!</p>
+          <a href="/recipes">Browse recipes →</a>
+        </div>
+      )
+    }
+
+  </div>
+</BaseLayout>
+
+<style>
+.page-hero { background:linear-gradient(135deg,#4c1d95,#2e1065);padding:5rem 0 3rem;margin-bottom:3rem; }
+.page-hero .eyebrow { display:block;font-family:'DM Sans',sans-serif;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#c4b5fd;margin-bottom:0.5rem; }
+.page-hero h1 { font-family:'Playfair Display',serif;font-size:3rem;color:#fff;margin:0 0 0.75rem; }
+.page-hero p { font-family:'DM Sans',sans-serif;color:rgba(255,255,255,0.7);font-size:1rem;margin:0; }
+.container { max-width:1200px;margin:0 auto;padding:0 1.5rem; }
+.page-body { padding-bottom:5rem; }
+
+.recipe-selector { display:flex;align-items:center;gap:1rem;margin-bottom:2rem;flex-wrap:wrap; }
+.recipe-selector label { font-family:'DM Sans',sans-serif;font-size:0.9rem;font-weight:600;color:#555; }
+.recipe-selector select { padding:0.6rem 1rem;border:2px solid #e8e4de;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:0.9rem;color:#333;background:#fff;outline:none;cursor:pointer;transition:border-color 0.15s; }
+.recipe-selector select:focus { border-color:#4c1d95; }
+
+.quiz-context { margin-bottom:1.5rem; }
+.quiz-context h2 { font-family:'Playfair Display',serif;font-size:1.5rem;color:#1A1A1A;margin:0 0 0.4rem; }
+.recipe-name { color:#4c1d95; }
+.back-link { font-family:'DM Sans',sans-serif;font-size:0.88rem;color:#C0392B;text-decoration:none; }
+.back-link:hover { text-decoration:underline; }
+
+.empty { text-align:center;padding:5rem 2rem;font-family:'DM Sans',sans-serif;color:#999; }
+.empty a { color:#C0392B;text-decoration:none; }
+</style>

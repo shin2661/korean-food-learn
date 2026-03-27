@@ -1,0 +1,17 @@
+# deps
+node_modules/
+
+# build
+dist/
+.astro/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# generated content (DB에 들어간 후 불필요)
+scripts/output/
+
+# cloudflare
+.wrangler/

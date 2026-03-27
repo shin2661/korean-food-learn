@@ -1,0 +1,184 @@
+---
+interface Props {
+  phraseKr: string;
+  phraseEn: string;
+  romanization: string;
+  partOfSpeech?: string | null;
+  level: string;
+  grammarPoint?: string | null;
+  grammarExplanation?: string | null;
+  exampleKr?: string | null;
+  exampleRomanization?: string | null;
+  exampleEn?: string | null;
+  usageNote?: string | null;
+}
+
+const {
+  phraseKr, phraseEn, romanization, partOfSpeech,
+  level, grammarPoint, grammarExplanation,
+  exampleKr, exampleRomanization, exampleEn, usageNote,
+} = Astro.props;
+
+const levelColor = {
+  beginner:     'level-beginner',
+  intermediate: 'level-intermediate',
+  advanced:     'level-advanced',
+}[level] ?? 'level-beginner';
+---
+
+<div class="phrase-card">
+  <div class="phrase-top">
+    <div class="phrase-main">
+      <span class="phrase-kr">{phraseKr}</span>
+      <span class="phrase-rom">{romanization}</span>
+    </div>
+    <div class="phrase-meta">
+      <span class={`level-badge ${levelColor}`}>{level}</span>
+      {partOfSpeech && <span class="pos">{partOfSpeech}</span>}
+    </div>
+  </div>
+
+  <p class="phrase-en">{phraseEn}</p>
+
+  {grammarPoint && (
+    <div class="grammar-box">
+      <span class="grammar-label">Grammar</span>
+      <span class="grammar-point">{grammarPoint}</span>
+      {grammarExplanation && <p class="grammar-exp">{grammarExplanation}</p>}
+    </div>
+  )}
+
+  {exampleKr && (
+    <div class="example-box">
+      <p class="ex-kr">{exampleKr}</p>
+      {exampleRomanization && <p class="ex-rom">{exampleRomanization}</p>}
+      {exampleEn && <p class="ex-en">"{exampleEn}"</p>}
+    </div>
+  )}
+
+  {usageNote && <p class="usage-note">💡 {usageNote}</p>}
+</div>
+
+<style>
+.phrase-card {
+  background: #fff;
+  border: 1px solid #e8e4de;
+  border-radius: 16px;
+  padding: 1.25rem;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.phrase-card:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  transform: translateY(-2px);
+}
+.phrase-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.phrase-main { display: flex; flex-direction: column; gap: 0.15rem; }
+.phrase-kr {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1A1A1A;
+  line-height: 1.2;
+}
+.phrase-rom {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  color: #888;
+  font-style: italic;
+}
+.phrase-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem; }
+.level-badge {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  text-transform: capitalize;
+}
+.level-beginner     { background: #dbeafe; color: #1e40af; }
+.level-intermediate { background: #fde68a; color: #92400e; }
+.level-advanced     { background: #fce7f3; color: #9d174d; }
+
+.pos {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.7rem;
+  color: #aaa;
+  font-style: italic;
+}
+.phrase-en {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #333;
+  margin: 0 0 0.75rem;
+}
+.grammar-box {
+  background: #fef9f0;
+  border-left: 3px solid #D4A017;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 0.75rem;
+}
+.grammar-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #D4A017;
+  margin-right: 0.5rem;
+}
+.grammar-point {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #8B6914;
+}
+.grammar-exp {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  color: #7a6030;
+  margin: 0.3rem 0 0;
+  line-height: 1.5;
+}
+.example-box {
+  background: #f8f7f5;
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.6rem;
+}
+.ex-kr {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #1A1A1A;
+  margin: 0 0 0.1rem;
+}
+.ex-rom {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  color: #999;
+  font-style: italic;
+  margin: 0 0 0.2rem;
+}
+.ex-en {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  color: #666;
+  margin: 0;
+}
+.usage-note {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  color: #888;
+  margin: 0;
+  padding-top: 0.4rem;
+  border-top: 1px solid #f0ebe4;
+}
+</style>

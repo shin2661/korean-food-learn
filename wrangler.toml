@@ -1,0 +1,11 @@
+name = "korean-food-learn"
+compatibility_date = "2025-01-01"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "korean-food-db"
+database_id = ""   # wrangler d1 create korean-food-db 후 채울 것
+
+[vars]
+ENVIRONMENT = "production"

@@ -1,0 +1,151 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getDB } from '../../lib/db';
+import { ingredients, recipeIngredients, recipes } from '../../../db/schema';
+import { eq } from 'drizzle-orm';
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+if (!slug) return Astro.redirect('/404');
+
+const db = getDB(Astro.locals);
+const [ing] = await db.select().from(ingredients).where(eq(ingredients.slug, slug)).limit(1);
+if (!ing) return Astro.redirect('/404');
+
+const relatedRows = await db
+  .select({ recipe: recipes })
+  .from(recipeIngredients)
+  .innerJoin(recipes, eq(recipeIngredients.recipeId, recipes.id))
+  .where(eq(recipeIngredients.ingredientId, ing.id));
+
+const relatedRecipes = relatedRows.map(r => r.recipe).filter(r => r.published);
+---
+
+<BaseLayout
+  title={ing.metaTitle ?? `${ing.nameEn} (${ing.nameKr}) | Korean Ingredients Guide`}
+  description={ing.metaDescription ?? ing.description ?? `Learn about ${ing.nameEn}, the Korean ingredient ${ing.nameKr}.`}
+>
+
+  <div class="container page-body">
+    <div class="breadcrumb">
+      <a href="/">Home</a> › <a href="/ingredients">Ingredients</a> › <span>{ing.nameEn}</span>
+    </div>
+
+    <div class="ing-layout">
+      <div class="ing-main">
+        <!-- Header -->
+        <div class="ing-header">
+          <div class="ing-img-wrap">
+            {ing.imageUrl
+              ? <img src={ing.imageUrl} alt={ing.nameEn} />
+              : <span class="ing-emoji">🌿</span>
+            }
+          </div>
+          <div class="ing-title-block">
+            <span class="ing-kr-big">{ing.nameKr}</span>
+            <h1 class="ing-en-big">{ing.nameEn}</h1>
+            <p class="ing-rom">/{ing.romanization}/</p>
+          </div>
+        </div>
+
+        {ing.description && (
+          <section class="section">
+            <h2>What is it?</h2>
+            <p>{ing.description}</p>
+          </section>
+        )}
+
+        {ing.substitute && (
+          <section class="section sub-section">
+            <h2>🔄 Substitutes</h2>
+            <p>{ing.substitute}</p>
+          </section>
+        )}
+
+        {ing.whereToFind && (
+          <section class="section">
+            <h2>🛒 Where to Find It</h2>
+            <p>{ing.whereToFind}</p>
+          </section>
+        )}
+
+        {ing.storageNote && (
+          <section class="section">
+            <h2>📦 Storage</h2>
+            <p>{ing.storageNote}</p>
+          </section>
+        )}
+
+        {relatedRecipes.length > 0 && (
+          <section class="section">
+            <h2>Recipes Using {ing.nameEn}</h2>
+            <div class="related-grid">
+              {relatedRecipes.map(r => (
+                <a href={`/recipes/${r.slug}`} class="related-card">
+                  <span class="rel-kr">{r.titleKr}</span>
+                  <span class="rel-en">{r.titleEn}</span>
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+
+      <aside class="ing-sidebar">
+        <div class="sidebar-card">
+          <h3>Quick Facts</h3>
+          <div class="fact-row"><span>Korean</span><strong class="kr">{ing.nameKr}</strong></div>
+          <div class="fact-row"><span>Pronunciation</span><em>{ing.romanization}</em></div>
+          {ing.substitute && <div class="fact-row"><span>Substitute</span><span>{ing.substitute.slice(0, 40)}</span></div>}
+        </div>
+        <!-- AdSense sidebar -->
+        <div class="adsense-slot" aria-hidden="true"></div>
+      </aside>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+.container { max-width:1200px;margin:0 auto;padding:0 1.5rem; }
+.page-body { padding:2rem 1.5rem 5rem; }
+.breadcrumb { font-family:'DM Sans',sans-serif;font-size:0.82rem;color:#aaa;margin-bottom:2rem; }
+.breadcrumb a { color:#aaa;text-decoration:none; }
+.breadcrumb a:hover { color:#C0392B; }
+
+.ing-layout { display:grid;grid-template-columns:1fr 280px;gap:3rem;align-items:start; }
+
+.ing-header { display:flex;gap:2rem;align-items:center;margin-bottom:2.5rem; }
+.ing-img-wrap { width:160px;height:160px;flex-shrink:0;border-radius:20px;overflow:hidden;background:linear-gradient(135deg,#f0fdf4,#dcfce7);display:flex;align-items:center;justify-content:center; }
+.ing-img-wrap img { width:100%;height:100%;object-fit:cover; }
+.ing-emoji { font-size:5rem; }
+.ing-kr-big { font-family:'Noto Sans KR',sans-serif;font-size:1.75rem;font-weight:700;color:#2D6A4F;display:block;margin-bottom:0.2rem; }
+.ing-en-big { font-family:'Playfair Display',serif;font-size:2.5rem;color:#1A1A1A;margin:0 0 0.25rem; }
+.ing-rom { font-family:'DM Sans',sans-serif;color:#aaa;font-style:italic;font-size:1rem;margin:0; }
+
+.section { margin-bottom:2rem; }
+.section h2 { font-family:'Playfair Display',serif;font-size:1.35rem;color:#1A1A1A;margin:0 0 0.75rem;padding-bottom:0.5rem;border-bottom:2px solid #F0E6D3; }
+.section p { font-family:'DM Sans',sans-serif;font-size:1rem;color:#555;line-height:1.75;margin:0; }
+.sub-section { background:#fef9f0;border:1px solid #fde68a;border-radius:12px;padding:1.25rem; }
+.sub-section h2 { border-color:#fde68a; }
+
+.related-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.75rem; }
+.related-card { display:flex;flex-direction:column;padding:0.75rem 1rem;background:#F5F5F0;border-radius:10px;text-decoration:none;transition:background 0.15s; }
+.related-card:hover { background:#F0E6D3; }
+.rel-kr { font-family:'Noto Sans KR',sans-serif;font-size:0.85rem;font-weight:700;color:#C0392B; }
+.rel-en { font-family:'DM Sans',sans-serif;font-size:0.82rem;color:#555; }
+
+.ing-sidebar { display:flex;flex-direction:column;gap:1.5rem; }
+.sidebar-card { background:#fff;border:1px solid #e8e4de;border-radius:16px;padding:1.25rem; }
+.sidebar-card h3 { font-family:'Playfair Display',serif;font-size:1rem;color:#1A1A1A;margin:0 0 0.75rem;padding-bottom:0.5rem;border-bottom:2px solid #F0E6D3; }
+.fact-row { display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0;border-bottom:1px solid #f5f2ee;font-family:'DM Sans',sans-serif;font-size:0.85rem; }
+.fact-row span:first-child { color:#aaa; }
+.fact-row strong.kr { font-family:'Noto Sans KR',sans-serif;color:#2D6A4F; }
+.adsense-slot { background:#f8f7f5;border:1px dashed #d0c8bc;border-radius:12px;min-height:250px; }
+
+@media (max-width:768px) {
+  .ing-layout { grid-template-columns:1fr; }
+  .ing-header { flex-direction:column;text-align:center; }
+  .ing-img-wrap { width:120px;height:120px; }
+}
+</style>
