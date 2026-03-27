@@ -5,7 +5,7 @@ pages_build_output_dir = "dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "korean-food-db"
-database_id = "local-korean-food-db"   # prod: wrangler d1 create korean-food-db 후 실제 ID로 교체
+database_id = "45bff69e-e21f-4a97-9a0a-f573ac9a6780"
 
 [vars]
 ENVIRONMENT = "production"
